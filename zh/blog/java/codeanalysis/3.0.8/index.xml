@@ -1,505 +1,382 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 02-启动服务前服务配置ServiceConfig类型是如何初始化的?</title><link>https://dubbo.apache.org/zh/blog/2022/08/06/02-%E5%90%AF%E5%8A%A8%E6%9C%8D%E5%8A%A1%E5%89%8D%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AEserviceconfig%E7%B1%BB%E5%9E%8B%E6%98%AF%E5%A6%82%E4%BD%95%E5%88%9D%E5%A7%8B%E5%8C%96%E7%9A%84/</link><pubDate>Sat, 06 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/06/02-%E5%90%AF%E5%8A%A8%E6%9C%8D%E5%8A%A1%E5%89%8D%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AEserviceconfig%E7%B1%BB%E5%9E%8B%E6%98%AF%E5%A6%82%E4%BD%95%E5%88%9D%E5%A7%8B%E5%8C%96%E7%9A%84/</guid><description>
-&lt;h1 id="2-启动服务前服务配置serviceconfig类型是如何初始化的">2-启动服务前服务配置ServiceConfig类型是如何初始化的?&lt;/h1>
-&lt;h2 id="21-示例源码回顾">2.1 示例源码回顾:&lt;/h2>
-&lt;p>为了方便我们理解记忆,这里先来回顾下上一章我们说的示例代码,如下所示:&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">class&lt;/span> &lt;span style="color:#268bd2">Application&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">main&lt;/span>&lt;span style="color:#719e07">(&lt;/span>String&lt;span style="color:#719e07">[]&lt;/span> args&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#268bd2">throws&lt;/span> Exception &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> startWithBootstrap&lt;span style="color:#719e07">();&lt;/span>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 04-Dubbo的扩展机制</title><link>https://dubbo.apache.org/zh/blog/2022/08/04/04-dubbo%E7%9A%84%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6/</link><pubDate>Thu, 04 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/04/04-dubbo%E7%9A%84%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6/</guid><description>
+&lt;h1 id="4-dubbo的扩展机制">4-Dubbo的扩展机制&lt;/h1>
+&lt;h2 id="41-回顾我们前面使用到扩展场景">4.1 回顾我们前面使用到扩展场景&lt;/h2>
+&lt;p>在上一章中我们初始化应用模型对象的时候,了解到有几个地方用到了扩展机制来创建对象,这一章我们会详细来讲一下这个扩展对象的加载过程,这里我们先来回顾下哪些地方用到了扩展机制:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// 使用扩展机制获取TypeBuilder
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>Set&lt;span style="color:#719e07">&amp;lt;&lt;/span>TypeBuilder&lt;span style="color:#719e07">&amp;gt;&lt;/span> tbs &lt;span style="color:#719e07">=&lt;/span> model&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>TypeBuilder&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getSupportedExtensionInstances&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//获取域模型初始化器ScopeModelInitializer扩展对象,执行初始化方法
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>ScopeModelInitializer&lt;span style="color:#719e07">&amp;gt;&lt;/span> initializerExtensionLoader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ScopeModelInitializer&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Set&lt;span style="color:#719e07">&amp;lt;&lt;/span>ScopeModelInitializer&lt;span style="color:#719e07">&amp;gt;&lt;/span> initializers &lt;span style="color:#719e07">=&lt;/span> initializerExtensionLoader&lt;span style="color:#719e07">.&lt;/span>getSupportedExtensionInstances&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// OrderedPropertiesConfiguration 中获取有序配置提供器对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>OrderedPropertiesProvider&lt;span style="color:#719e07">&amp;gt;&lt;/span> propertiesProviderExtensionLoader &lt;span style="color:#719e07">=&lt;/span> moduleModel&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>OrderedPropertiesProvider&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ApplicationModel中获取配置管理器对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configManager &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>ConfigManager&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ApplicationExt&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>getExtension&lt;span style="color:#719e07">(&lt;/span>ConfigManager&lt;span style="color:#719e07">.&lt;/span>NAME&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//ModuleModel中获取模块扩展对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>Set&lt;span style="color:#719e07">&amp;lt;&lt;/span>ModuleExt&lt;span style="color:#719e07">&amp;gt;&lt;/span> exts &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ModuleExt&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getSupportedExtensionInstances&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ApplicationModel中获Environment对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>environment &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>Environment&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ApplicationExt&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>getExtension&lt;span style="color:#719e07">(&lt;/span>Environment&lt;span style="color:#719e07">.&lt;/span>NAME&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ApplicationModel中获取应用初始化监听器ApplicationInitListener扩展对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>ApplicationInitListener&lt;span style="color:#719e07">&amp;gt;&lt;/span> extensionLoader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ApplicationInitListener&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Set&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">&amp;gt;&lt;/span> listenerNames &lt;span style="color:#719e07">=&lt;/span> extensionLoader&lt;span style="color:#719e07">.&lt;/span>getSupportedExtensions&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//ScopeModel中创建扩展访问器:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>extensionDirector &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ExtensionDirector&lt;span style="color:#719e07">(&lt;/span>parent &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">?&lt;/span> parent&lt;span style="color:#719e07">.&lt;/span>getExtensionDirector&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">:&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">,&lt;/span> scope&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>有了以上的应用场景我们可以来看下扩展机制了&lt;/p>
+&lt;h2 id="42-为什么要用到扩展机制">4.2 为什么要用到扩展机制?&lt;/h2>
+&lt;p>为什么要用到扩展这个想必每个编程人员都比较了解,一个好的程序是要遵循一定的设计规范比如设计模式中的&lt;strong>开闭原则&lt;/strong> 英文全称是 Open Closed Principle，简写为 OCP,对扩展开放、对修改关闭:&lt;/p>
+&lt;p>&lt;strong>对扩展开放：&lt;/strong> 指的是我们系统中的模块、类、方法对它们的提供者（开发者）应该是开放的，提供者可以对系统进行扩展（新增）新的功能。&lt;/p>
+&lt;p>&lt;strong>对修改关闭：&lt;/strong> 指的是系统中的模块、类、方法对它们的使用者（调用者）应该是关闭的。使用者使用这些功能时，不会因为提供方新增了功能而导致使用者也进行相应修改。&lt;/p>
+&lt;p>我们再来了解下Dubbo的一些基本特性:
+下面这句话是我摘自官网的:
+&lt;em>Apache Dubbo 是一款微服务开发框架，它提供了 &lt;strong>RPC通信&lt;/strong> 与 &lt;strong>微服务治理&lt;/strong> 两大关键能力。这意味着，使用 Dubbo 开发的微服务，将具备相互之间的远程发现与通信能力， 同时利用 Dubbo 提供的丰富服务治理能力，可以实现诸如服务发现、负载均衡、流量调度等服务治理诉求。同时 Dubbo 是高度可扩展的，用户几乎可以在&lt;strong>任意功能点去定制自己的实现&lt;/strong>，以改变框架的默认行为来满足自己的业务需求。
+Dubbo3 基于 Dubbo2 演进而来，在保持原有核心功能特性的同时， Dubbo3 在易用性、超大规模微服务实践、云原生基础设施适配、安全设计等几大方向上进行了全面升级。 以下文档都将基于 Dubbo3 展开。&lt;/em>&lt;/p>
+&lt;p>&lt;strong>对修改关闭的地方:&lt;/strong> 对于Apache Dubbo来说 不变的是RPC调用流程,微服务治理这些抽象的概念,我们可以用摘自官网的下面几个图表示:
+&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/4-dubbo-arch.png" alt="在这里插入图片描述">&lt;/p>
+&lt;center>图4.1 Dubbo架构图&lt;/center>
+&lt;p>再来看一个调用链路的架构图&lt;/p>
+&lt;p>&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/4-dubbo-arch2.png" alt="在这里插入图片描述">&lt;/p>
+&lt;center>图4.2 Dubbo RPC调用链路&lt;/center>
+&lt;br/>
+上面两个图整体来看都是Dubbo不变的地方涉及到服务的RPC调用和服务治理的一些概念与流程,但是对于每个环节又可以使用各种方式实现,比如序列化机制可以是Json,Java序列化,Hession2或者Protobuf等等,网络传输层可以是netty实现的tcp通信,也可以使用http协议,那Dubbo又是如何封装不变部分扩展这种可变部分呢?,那就是接下来要说的**微内核机制**,这个我们待会说
+&lt;p>&lt;strong>对扩展开放：&lt;/strong> : 对于Apache Dubbo来说 变化的是RPC调用流程和微服务治理这些抽象的概念的具体实现,每个点应该用什么技术实现,又是用什么场景,这个可以用如下图来表示下:
+&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/4-dubbo-arch3.png" alt="在这里插入图片描述">&lt;/p>
+&lt;center>图4.3 Dubbo的扩展生态&lt;/center>
+&lt;/br>
+&lt;p>看到这里 应该各位就明白了,我们写程序是为了业务,而针对不同的业务需求很多场景下我们是需要使用不同的实现来满足的,Dubbo使用微内核的架构,将具体的实现开放出来,让使用者可以根据自己的需求来选择,定制. Dubbo开放了很多的扩展点供大家扩展,可想而知使用Dubbo的灵活性是非常高的。&lt;/p>
+&lt;p>&lt;strong>微内核架构:&lt;/strong>
+微内核架构由两大架构模块组成：&lt;strong>核心系统&lt;/strong>与&lt;strong>插件模块&lt;/strong>,设计一个微内核体系关键工作全部集中于核心系统怎么构建。
+&lt;strong>核心系统&lt;/strong> : 负责和具体业务功能无关的通用功能，例如模块加载、模块间通信等,这个其实对应着Dubbo的SPI机制。
+&lt;strong>插件模块&lt;/strong> : 负责实现具体的业务逻辑，Dubbo,SPI接口与实现。&lt;/p>
+&lt;h2 id="43-dubbo的扩展机制包含了哪些重要的组成部分">4.3 Dubbo的扩展机制包含了哪些重要的组成部分?&lt;/h2>
+&lt;p>前面我们说了为什么要使用扩展机制,这里我们来看下具体实现&lt;/p>
+&lt;p>先将扩展包里面的代码截个图认识认识各类型的单词
+&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/4-dubbo-extension.png" alt="在这里插入图片描述">&lt;/p>
+&lt;p>顺便我们先简单看下类结构图,后续再详细看每个类型的解释:
+&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/4-dubbo-extension2.png" alt="在这里插入图片描述">&lt;/p>
+&lt;p>为了后续看具体的扩展加载流程我们先看下以上类型的解释说明:&lt;/p>
+&lt;ul>
+&lt;li>
+&lt;p>&lt;strong>ExtensionAccessor&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>扩展的统一访问器&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionDirector&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>ExtensionDirector是一个作用域扩展加载程序管理器。&lt;/li>
+&lt;li>ExtensionDirector支持多个级别，子级可以继承父级的扩展实例。
+查找和创建扩展实例的方法类似于Java classloader。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionScope&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>扩展SPI域,目前有FRAMEWORK,APPLICATION,MODULE,SELF&lt;/li>
+&lt;li>&lt;strong>FRAMEWORK&lt;/strong> : 扩展实例在框架内使用，与所有应用程序和模块共享。
+框架范围SPI扩展只能获取FrameworkModel，无法获取ApplicationModel和ModuleModel。
+考虑：
+一些SPI需要在框架内的应用程序之间共享数据
+无状态SPI在框架内是安全共享的&lt;/li>
+&lt;li>&lt;strong>APPLICATION&lt;/strong> 扩展实例在一个应用程序中使用，与应用程序的所有模块共享，不同的应用程序创建不同的扩展实例。
+应用范围SPI扩展可以获取FrameworkModel和ApplicationModel，无法获取ModuleModel。
+考虑：
+在框架内隔离不同应用程序中的扩展数据
+在应用程序内部的所有模块之间共享扩展数据&lt;/li>
+&lt;li>&lt;strong>MODULE&lt;/strong> 扩展实例在一个模块中使用，不同的模块创建不同的扩展实例。
+模块范围SPI扩展可以获得FrameworkModel、ApplicationModel和ModuleModel。
+考虑：
+隔离应用程序内部不同模块中的扩展数据&lt;/li>
+&lt;li>&lt;strong>SELF&lt;/strong> 自给自足，为每个作用域创建一个实例，用于特殊的SPI扩展，如ExtensionInjector&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionLoader&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>ApplicationModel、DubboBootstrap和这个类目前被设计为单例或静态（本身完全静态或使用一些静态字段）。因此，从它们返回的实例属于process或classloader范围。如果想在一个进程中支持多个dubbo服务器，可能需要重构这三个类。&lt;/li>
+&lt;li>加载dubbo扩展&lt;/li>
+&lt;li>自动注入依赖项扩展&lt;/li>
+&lt;li>包装器中的自动包装扩展&lt;/li>
+&lt;li>默认扩展是一个自适应实例&lt;/li>
+&lt;li>JDK自带SPI参考地址 &lt;a href="https://docs.oracle.com/javase/1.5.0/docs/guide/jar/jar.html#Service%20Provider">点击查看&lt;/a>&lt;/li>
+&lt;li>@SPI 服务扩展接口 详细内容看后面&lt;/li>
+&lt;li>@Adaptive自适应扩展点注解 详细内容看后面&lt;/li>
+&lt;li>@Activate自动激活扩展点注解 详细内容看后面&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionPostProcessor&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>在扩展初始化之前或之后调用的后处理器。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>LoadingStrategy&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>扩展加载策略,目前有3个扩展加载策略分别从不同文件目录加载扩展&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>DubboInternalLoadingStrategy&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Dubbo内置的扩展加载策略,将加载文件目录为META-INF/dubbo/internal/的扩展&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>DubboLoadingStrategy&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Dubbo普通的扩展加载策略,将加载目录为META-INF/dubbo/的扩展&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ServicesLoadingStrategy&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>JAVA SPI加载策略 ,将加载目录为META-INF/services/的扩展&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Wrapper&lt;/strong>注解&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>SPI注解&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionInjector&lt;/strong>接口&lt;/p>
+&lt;ul>
+&lt;li>为SPI扩展提供资源的注入器。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ExtensionAccessorAware&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>SPI扩展可以实现这个感知接口，以获得适当的xtensionAccessor实例。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>DisableInject注解&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>AdaptiveClassCodeGenerator&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>自适应类的代码生成器&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Adaptive&lt;/strong>注解&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>为ExtensionLoader注入依赖扩展实例提供有用信息。&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>Activate&lt;/strong>注解&lt;/p>
+&lt;ul>
+&lt;li>Activate。此注解对于使用给定条件自动激活某些扩展非常有用，例如：@Activate可用于在有多个实现时加载某些筛选器扩展。
+**group()**指定组条件。框架SPI定义了有效的组值。
+**value()**指定URL条件中的参数键。
+SPI提供程序可以调用ExtensionLoader。getActivateExtension(URL、String、String)方法以查找具有给定条件的所有已激活扩展。&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>ActivateComparator&lt;/strong>&lt;/p>
+&lt;ul>
+&lt;li>Activate扩展的排序器&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>MultiInstanceActivateComparator&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>WrapperComparator&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>AdaptiveExtensionInjector&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;li>
+&lt;p>&lt;strong>SpiExtensionInjector&lt;/strong>&lt;/p>
+&lt;/li>
+&lt;/ul>
+&lt;h2 id="44-扩展加载创建之前的调用过程">4.4 扩展加载创建之前的调用过程&lt;/h2>
+&lt;h3 id="441-扩展的调用代码示例">4.4.1 扩展的调用代码示例&lt;/h3>
+&lt;p>了解了这么多与扩展相关的概念,接下来我们就来从前面的代码调用中找几个例子来看下扩展的调用过程:&lt;/p>
+&lt;p>代码来源于FrameworkModel对象的初始化initialize()中的如下代码调用:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> TypeDefinitionBuilder&lt;span style="color:#719e07">.&lt;/span>initBuilders&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>TypeDefinitionBuilder中初始化类型构建器代码如下:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">initBuilders&lt;/span>&lt;span style="color:#719e07">(&lt;/span>FrameworkModel model&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Set&lt;span style="color:#719e07">&amp;lt;&lt;/span>TypeBuilder&lt;span style="color:#719e07">&amp;gt;&lt;/span> tbs &lt;span style="color:#719e07">=&lt;/span> model&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>TypeBuilder&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getSupportedExtensionInstances&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> BUILDERS &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ArrayList&lt;span style="color:#719e07">&amp;lt;&amp;gt;(&lt;/span>tbs&lt;span style="color:#719e07">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">startWithBootstrap&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> service&lt;span style="color:#719e07">.&lt;/span>setInterface&lt;span style="color:#719e07">(&lt;/span>DemoService&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> service&lt;span style="color:#719e07">.&lt;/span>setRef&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> DemoServiceImpl&lt;span style="color:#719e07">());&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>protocol&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ProtocolConfig&lt;span style="color:#719e07">(&lt;/span>CommonConstants&lt;span style="color:#719e07">.&lt;/span>DUBBO&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">-&lt;/span>1&lt;span style="color:#719e07">))&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>service&lt;span style="color:#719e07">(&lt;/span>service&lt;span style="color:#719e07">)&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>start&lt;span style="color:#719e07">()&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>await&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="442-dubbo的分层模型获取扩展加载器对象">4.4.2 Dubbo的分层模型获取扩展加载器对象&lt;/h3>
+&lt;p>以上扩展调用的时候对于扩展加载器对象的获取代码如下所示,我们来看下它的调用链路&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>model&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>TypeBuilder&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>getExtensionLoader方法来源于FrameworkModel类型的父类型ScopeModel的实现的接口ExtensionAccessor中的默认方法(JDK8 默认方法)&lt;/p>
+&lt;p>ExtensionAccessor接口中的getExtensionLoader方法如下代码:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">default&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> &lt;span style="color:#268bd2">getExtensionLoader&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> type&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionDirector&lt;span style="color:#719e07">().&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>获取扩展加载器之前需要先获取扩展访问器:
+这里的链路先梳理下:&lt;/p>
+&lt;p>&lt;strong>模型对象(FrameworkModel)-&lt;/strong>&amp;ndash;&amp;gt; &lt;strong>扩展访问器(ExtensionAccessor)&lt;/strong> &amp;mdash;&amp;gt; &lt;strong>作用域扩展加载程序管理器(ExtensionDirector)&lt;/strong> &amp;mdash;&amp;gt;&lt;/p>
+&lt;p>这个getExtensionDirector()方法来源于FrameworkModel的抽象父类型ScopeModel中的getExtensionDirector()如下代码:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> ExtensionDirector &lt;span style="color:#268bd2">getExtensionDirector&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> extensionDirector&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>这里直接返回了extensionDirector,,不知道介绍到这里记得这个扩展加载程序管理器extensionDirector对象的由来不, 在上个章节&lt;a href="https://blog.elastic.link/2022/07/10/dubbo/3-kuang-jia-ying-yong-cheng-xu-mo-kuai-ling-yu-mo-xing-model-dui-xiang-de-chu-shi-hua/">《3-框架,应用程序,模块领域模型Model对象的初始化》&lt;/a>中3.2.2 初始化ScopeModel的章节中的ScopeModel类型的初始化方法initialize()方法中我们提到过这个对象的创建,具体代码如下所示(这个代码比较简单):&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>extensionDirector &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ExtensionDirector&lt;span style="color:#719e07">(&lt;/span>parent &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">?&lt;/span> parent&lt;span style="color:#719e07">.&lt;/span>getExtensionDirector&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">:&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">,&lt;/span> scope&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>我们继续前面getExtensionLoader(type)方法调用逻辑,前面我们知道了这个扩展访问器的对象是ExtensionDirector,接下来我们看下ExtensionDirector中获取扩展加载器的代码(如下所示):
+在详细介绍扩展加载器对象获取之前我们先来看下当前我们要加载的扩展类型的源码,后续会用到:
+我们要加载的扩展类型TypeBuilder接口&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@SPI&lt;/span>&lt;span style="color:#719e07">(&lt;/span>scope &lt;span style="color:#719e07">=&lt;/span> ExtensionScope&lt;span style="color:#719e07">.&lt;/span>FRAMEWORK&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">interface&lt;/span> &lt;span style="color:#268bd2">TypeBuilder&lt;/span> &lt;span style="color:#268bd2">extends&lt;/span> Prioritized &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75"> * Whether the build accept the class passed in.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#dc322f">boolean&lt;/span> &lt;span style="color:#268bd2">accept&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;?&amp;gt;&lt;/span> clazz&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">/**
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75"> * Build type definition with the type or class.
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75"> */&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> TypeDefinition &lt;span style="color:#268bd2">build&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Type type&lt;span style="color:#719e07">,&lt;/span> Class&lt;span style="color:#719e07">&amp;lt;?&amp;gt;&lt;/span> clazz&lt;span style="color:#719e07">,&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> TypeDefinition&lt;span style="color:#719e07">&amp;gt;&lt;/span> typeCache&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面这几行代码虽然看似简单,仅仅几行的启动,但是完全掌握也得下一翻大功夫,接下来我们重点看启动代码中的第一行,创建一个服务配置对象:&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="22-了解一下服务配置的建模">2.2 了解一下服务配置的建模&lt;/h2>
-&lt;p>下面是一个简单的UML继承关系图,当然这个图很是简单的,这里仅仅列出了当前服务提供者的相关服务配置继承关系, 服务提供者独有的配置标注颜色为蓝色,一些可能与服务引用配置所共有的父类型我们用红色背景,当然这里为了简便起见不会提起服务引用相关的配置类型,这里列举了如下服务提供者类型,他们各司其职:
-&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/2-ServiceConfig.png" alt="在这里插入图片描述">&lt;/p>
-&lt;center>图2.1 服务引用类继承关系UML&lt;/center>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ExtensionDirector类型中获取扩展加载器的代码
+这个代码非常有意思 &lt;strong>其实就是前面说到的域模型架构的数据访问架构&lt;/strong>类似于JVM类加载器访问加载类的情况,但是这个顺序可能有所不同,Dubbo的扩展加载器是如何访问的呢? 遵循以下顺序:&lt;/p>
 &lt;ul>
-&lt;li>AbstractConfig
-&lt;ul>
-&lt;li>&lt;strong>抽象的配置类型&lt;/strong>,也是最顶层的服务配置类型,封装着解析配置的实用方法和公共方法,比如服务id的设置,服务标签名字的处理,服务参数的添加,属性的提取等等&lt;/li>
+&lt;li>先从&lt;strong>缓存中&lt;/strong>查询扩展加载器&lt;/li>
+&lt;li>如果前面没找到则查询扩展类型的scope所属域,如果是&lt;strong>当前域扩展&lt;/strong>则从直接创建扩展加载器&lt;/li>
+&lt;li>如果前面没找到就从&lt;strong>父扩展访问器&lt;/strong>中查询,查询这个扩展是否数据父扩展域&lt;/li>
+&lt;li>前面都没找到就尝试创建&lt;/li>
 &lt;/ul>
-&lt;/li>
-&lt;li>AbstractMethodConfig
-&lt;ul>
-&lt;li>&lt;strong>抽象的方法配置&lt;/strong>,同样这个类型也是见名知意,服务方法的相关配置处理,这个类型主要用于对服务方法的一些配置信息建模比如服务方法的调用超时时间,重试次数,最大并发调用数,负载均衡策略,是否异步调用,是否确认异步发送等等配置信息.&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>AbstractInterfaceConfig
-&lt;ul>
-&lt;li>&lt;strong>抽象的接口配置&lt;/strong>,与前面介绍的方法配置类似,这个类型是对服务接口的建模,主要的配置信息有暴漏服务的接口名字,服务接口的版本号,客户/提供方将引用的远程服务分组,&lt;strong>服务元数据&lt;/strong>,服务接口的本地impl类名,服务监控配置,对于生成动态代理的策略，可以选择两种策略：jdk和javassist,容错类型等等配置&lt;/li>
-&lt;/ul>
-&lt;/li>
-&lt;li>AbstractServiceConfig
-- &lt;strong>抽象的服务配置&lt;/strong>,这个就与我们的服务提供者有了具体的关系了,主要记录了一些服务提供者的公共配置,如服务版本,服务分组,服务延迟注册毫秒数,是否暴漏服务,服务权重,是否为动态服务,服务协议类型,是否注册等等.&lt;/li>
-&lt;li>ServiceConfigBase
-- &lt;strong>服务的基础配置类&lt;/strong>,这个类型仍旧是个抽象的类型提取了一些基础的配置:导出服务的接口类,服务名称,接口实现的引用类型,提供者配置,是否是通用服务GenericService&lt;/li>
-&lt;li>ServiceConfig
-- &lt;strong>服务配置实现类&lt;/strong>, 上面的类型都是抽象类型不能做为具体存在的事物,这个类型是我们出现的第一个服务配置实现类型,服务配置实现类已经从父类型中继承了这么多的属性,这里主要为实现服务提供了一些配置如服务的协议配置,服务的代理工厂JavassistProxyFactory是将生成导出服务代理的ProxyFactory实现，是其默认实现,服务提供者模型,是否导出服务,导出的服务列表,服务监听器等等.&lt;/li>
-&lt;li>ServiceBean
-- &lt;strong>服务工厂Bean&lt;/strong> ,这个主要是Spring模块来简化配置的一个服务工厂Bean这里就先不详细介绍Spring相关的配置. -&lt;/li>
-&lt;/ul>
-&lt;h2 id="23-serviceconfig构造器的初始化调用链">2.3 ServiceConfig构造器的初始化调用链&lt;/h2>
-&lt;p>有了上面的类型继承关系我们就比较好分析了,接下来我们开始创建服务配置对象如下代码所示:&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据Java基础的构造器知识,在每个构造器的第一行都会有个super方法来调用父类的构造器,当前这个super方法我们可以不写但是Java编译器底层还是会为我们默认加上这么一行super()代码来调用父类构造器的.&lt;/p>
-&lt;p>对于上面我提到的这几个构造器&lt;strong>根据代码被调用的先后顺序&lt;/strong>,这里重点说几个重要的,这里我仍旧按代码执行的先后顺序来说:&lt;/p>
-&lt;h3 id="231-父类型abstractmethodconfig构造器的初始化">2.3.1 父类型AbstractMethodConfig构造器的初始化&lt;/h3>
-&lt;p>根据super调用链这里先来看AbstractMethodConfig抽象方法配置&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractMethodConfig&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel&lt;span style="color:#719e07">.&lt;/span>defaultModel&lt;span style="color:#719e07">().&lt;/span>getDefaultModule&lt;span style="color:#719e07">());&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在这个构造器中只有个super方法用来调用父类型的构造器,但是在调用之前会先使用代码 &lt;strong>ApplicationModel.defaultModel().getDefaultModule()&lt;/strong> 创建一个模块模型对象&lt;strong>ModuleModel&lt;/strong>
-关于模型对象的细节我们会在下个章节来说,这里我们继续来看调用链&lt;/p>
-&lt;h3 id="232-最顶层类型abstractconfig构造器的初始化">2.3.2 最顶层类型AbstractConfig构造器的初始化&lt;/h3>
-&lt;p>&lt;strong>AbstractConfig&lt;/strong>的构造器初始化一共有两个,第一个步骤就是创建一个应用程序模型对象&lt;strong>ApplicationModel&lt;/strong>,刚刚我们在&lt;strong>AbstractMethodConfig&lt;/strong>的构造器中了解到使用这个代码&lt;strong>ApplicationModel.defaultModel().getDefaultModule()&lt;strong>创建了个模块模型对象&lt;/strong>ModuleModel&lt;/strong>,具体他们细节我们下一章细说,了解了子类型&lt;strong>AbstractMethodConfig&lt;/strong>的构造器是带参数的那我们就直接看第二个构造器&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractConfig&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel&lt;span style="color:#719e07">.&lt;/span>defaultModel&lt;span style="color:#719e07">());&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>将会调用第二个构造器初始化域模型&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractConfig&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当前类型设置ScopeModel类型对象&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">final&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">setScopeModel&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//第一次初始化的当前成员变量是空的可以设置变量
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//检查参数是否合法
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> checkScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化对象
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ScopeModel oldScopeModel &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel&lt;span style="color:#719e07">;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel &lt;span style="color:#719e07">=&lt;/span> scopeModel&lt;span style="color:#719e07">;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// reinitialize spi extension and change referenced config&amp;#39;s scope model
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//被子类重写的方法,根据多态会调用具体子类型的这个方法我们下面来看
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//子类应该重写此方法以初始化其SPI扩展并更改引用的配置的范围模型。
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>检查ScopeModel参数是否合法,合法的参数是不能为空并且必须是ApplicationModel类型或者子类型&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">checkScopeModel&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>scopeModel &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;scopeModel cannot be null&amp;#34;&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!(&lt;/span>scopeModel &lt;span style="color:#719e07">instanceof&lt;/span> ApplicationModel&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Invalid scope model, expect to be a ApplicationModel but got: &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> scopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="2321-重写的postprocessafterscopemodelchanged调用逻辑">2.3.2.1 重写的postProcessAfterScopeModelChanged调用逻辑&lt;/h4>
-&lt;p>当ScopeModel模型对象发生了改变,上面调用了postProcessAfterScopeModelChanged方法来通知模型对象改变的时候要执行的操作,根据多态重写的逻辑我们从实现类的postProcessAfterScopeModelChanged来看,在下面的调用链路中部分父类型并未实现postProcessAfterScopeModelChanged方法我们就直接忽略了&lt;/p>
-&lt;p>第一个被调用到的是&lt;strong>ServiceConfig&lt;/strong>类型的postProcessAfterScopeModelChanged方法&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@Override&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化当前协议对象,通过扩展机制获取协议Protocol类型的对象
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> protocolSPI &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>Protocol&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">();&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化当前代理工厂对象,通过扩展机制获取ProxyFactory类型的对象
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> proxyFactory &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ProxyFactory&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">();&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第二个被调用到的方法为&lt;strong>ServiceConfigBase&lt;/strong>的postProcessAfterScopeModelChanged方法&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@Override&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//当服务提供者配置对象不为空时候为服务提供者对象设置域模型,这里服务提供者对象仍旧为空,这个一般用在兼容Dubbo低版本
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> &lt;span style="color:#268bd2">getExtensionLoader&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> type&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//如果扩展加载器已经被销毁则抛出异常
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> checkDestroyed&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//这里参数类型传的是TypeBuilder.class不为空
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>type &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Extension type == null&amp;#34;&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//扩展类型不为接口也要抛出异常,这个TypeBuilder.class具体类型代码往上看,这个类型是一个接口
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!&lt;/span>type&lt;span style="color:#719e07">.&lt;/span>isInterface&lt;span style="color:#719e07">())&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Extension type (&amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> type &lt;span style="color:#719e07">+&lt;/span> &lt;span style="color:#2aa198">&amp;#34;) is not an interface!&amp;#34;&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//这个判断逻辑是判断这个扩展接口是有有@SPI注解,TypeBuilder是有的
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!&lt;/span>withExtensionAnnotation&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Extension type (&amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> type &lt;span style="color:#719e07">+&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;) is not an extension, because it is NOT annotated with @&amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> SPI&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">.&lt;/span>getSimpleName&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">+&lt;/span> &lt;span style="color:#2aa198">&amp;#34;!&amp;#34;&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// 1. find in local cache
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//被加载的扩展类型对应的扩展加载器会放到extensionLoadersMap这个ConcurrentHashMap类型的集合中方便缓存
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> loader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;)&lt;/span> extensionLoadersMap&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//查询扩展所属域,这个类型的扩展域是框架级别的ExtensionScope.FRAMEWORK
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//extensionScopeMap为ConcurrentHashMap类型的扩展域缓存集合
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ExtensionScope scope &lt;span style="color:#719e07">=&lt;/span> extensionScopeMap&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>scope &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> SPI annotation &lt;span style="color:#719e07">=&lt;/span> type&lt;span style="color:#719e07">.&lt;/span>getAnnotation&lt;span style="color:#719e07">(&lt;/span>SPI&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> scope &lt;span style="color:#719e07">=&lt;/span> annotation&lt;span style="color:#719e07">.&lt;/span>scope&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> extensionScopeMap&lt;span style="color:#719e07">.&lt;/span>put&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">,&lt;/span> scope&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//首次访问的时候当前类型的扩展加载器类型肯定是空的,会走如下两个逻辑中的其中一个进行创建扩展加载器
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//1)如果 扩展域为SELF 自给自足，为每个作用域创建一个实例，用于特殊的SPI扩展，如{@link ExtensionInjector}
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>loader &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> scope &lt;span style="color:#719e07">==&lt;/span> ExtensionScope&lt;span style="color:#719e07">.&lt;/span>SELF&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// create an instance in self scope
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> loader &lt;span style="color:#719e07">=&lt;/span> createExtensionLoader0&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// 2. find in parent
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//3) 从父扩展加载器中查询当前扩展加载器是否存在,这里parent是空的先不考虑
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>loader &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>parent &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> loader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>parent&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第三个被调用到的是&lt;strong>AbstractInterfaceConfig&lt;/strong>类型的postProcessAfterScopeModelChanged方法&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@Override&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// remove this config from old ConfigManager
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// if (oldScopeModel != null &amp;amp;&amp;amp; oldScopeModel instanceof ModuleModel) {
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ((ModuleModel)oldScopeModel).getConfigManager().removeConfig(this);
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// }
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// change referenced config&amp;#39;s scope model
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//获取应用程序模型对象
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ApplicationModel applicationModel &lt;span style="color:#719e07">=&lt;/span> ScopeModelUtil&lt;span style="color:#719e07">.&lt;/span>getApplicationModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为配置中心对象设置ApplicationModel类型对象(当前阶段配置中心配置对象为空)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// 3. create it
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//4) 这个是我们本次会走的逻辑,大部分是会走这个逻辑来创建扩展加载器对象的
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>loader &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> loader &lt;span style="color:#719e07">=&lt;/span> createExtensionLoader&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为元数据配置对象设置ApplicationModel类型对象(当前阶段数据配置配置对象为空)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> loader&lt;span style="color:#719e07">;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为MonitorConfig服务监控配置对象设置ApplicationModel类型对象(当前阶段数据配置配置对象为空)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>前面提到的withExtensionAnnotation判断代码如下:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">boolean&lt;/span> &lt;span style="color:#268bd2">withExtensionAnnotation&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;?&amp;gt;&lt;/span> type&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> type&lt;span style="color:#719e07">.&lt;/span>isAnnotationPresent&lt;span style="color:#719e07">(&lt;/span>SPI&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//这哥if判断和上面的上面是重复的估计是写代码人加班加的太久了,没注意看
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//如果注册中心配置列表不为空则为每个注册中心配置设置一个ApplicationModel类型对象(当前注册中心对象都为空)
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>CollectionUtils&lt;span style="color:#719e07">.&lt;/span>isNotEmpty&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>registries&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>registries&lt;span style="color:#719e07">.&lt;/span>forEach&lt;span style="color:#719e07">(&lt;/span>registryConfig &lt;span style="color:#719e07">-&amp;gt;&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>registryConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> registryConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">});&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后被调用到的是最顶层父类型&lt;strong>AbstractConfig&lt;/strong>的postProcessAfterScopeModelChanged方法
-这个方法什么也没干只是在父类型创建的模版方法让子类型来重写用的&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// remove this config from old ConfigManager
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// if (oldScopeModel != null &amp;amp;&amp;amp; oldScopeModel instanceof ApplicationModel) {
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ((ApplicationModel)oldScopeModel).getApplicationConfigManager().removeConfig(this);
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// }
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ExtensionDirector类型的createExtensionLoader方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> &lt;span style="color:#268bd2">createExtensionLoader&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> type&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> loader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//当前类型注解的scope与当前扩展访问器ExtensionDirector的scope是否一致,不一致则抛出异常
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//当前类型ExtensionDirector的scope是在构造器中传递的,在Model对象初始化的时候创建的本类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>isScopeMatched&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// if scope is matched, just create it
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> loader &lt;span style="color:#719e07">=&lt;/span> createExtensionLoader0&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span> &lt;span style="color:#719e07">else&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// if scope is not matched, ignore it
 &lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="233-serviceconfigbase构造器的初始化">2.3.3 ServiceConfigBase构造器的初始化&lt;/h3>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">ServiceConfigBase&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//服务元数据对象创建
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> serviceMetadata &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceMetadata&lt;span style="color:#719e07">();&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为服务元数据对象
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> serviceMetadata&lt;span style="color:#719e07">.&lt;/span>addAttribute&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;ORIGIN_CONFIG&amp;#34;&lt;/span>&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> loader&lt;span style="color:#719e07">;&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>注意，&lt;/strong> &lt;strong>ServiceMetadata&lt;/strong>这个类目前在Dubbo中没有用法。与服务级别相关的数据，例如名称、版本、业务服务的类加载器、安全信息等，还带有用于扩展的AttributeMap。&lt;/p>
-&lt;p>&lt;strong>服务配置对象的创建过程就这样结束了&lt;/strong>,当然有一些细节会&lt;strong>放到后面来写&lt;/strong>
-上面主要顺序是按照代码执行的顺序来写的部分地方可能稍微做了调整,如果有条件的同学一定要&lt;strong>自己进行DEBUG&lt;/strong>了解下细节.&lt;/p>
-&lt;p>关于服务配置官网提供了xml的配置信息这里我拷贝过来,可以做为参考:
-当然这个配置不是最新的比如服务配置的&lt;strong>标签配置tag&lt;/strong>,
-&lt;strong>warmup 预热时间&lt;/strong>单位毫秒,暂时还没有说明&lt;/p>
-&lt;table>
-&lt;thead>
-&lt;tr>
-&lt;th>属性&lt;/th>
-&lt;th>对应URL参数&lt;/th>
-&lt;th>类型&lt;/th>
-&lt;th>是否必填&lt;/th>
-&lt;th>缺省值&lt;/th>
-&lt;th>作用&lt;/th>
-&lt;th>描述&lt;/th>
-&lt;th>兼容性&lt;/th>
-&lt;/tr>
-&lt;/thead>
-&lt;tbody>
-&lt;tr>
-&lt;td>interface&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>class&lt;/td>
-&lt;td>必填&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>服务发现&lt;/td>
-&lt;td>服务接口名&lt;/td>
-&lt;td>1.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>ref&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>object&lt;/td>
-&lt;td>必填&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>服务发现&lt;/td>
-&lt;td>服务对象实现引用&lt;/td>
-&lt;td>1.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>version&lt;/td>
-&lt;td>version&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>0.0.0&lt;/td>
-&lt;td>服务发现&lt;/td>
-&lt;td>服务版本，建议使用两位数字版本，如：1.0，通常在接口不兼容时版本号才需要升级&lt;/td>
-&lt;td>1.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>group&lt;/td>
-&lt;td>group&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>服务发现&lt;/td>
-&lt;td>服务分组，当一个接口有多个实现，可以用分组区分&lt;/td>
-&lt;td>1.0.7以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>path&lt;/td>
-&lt;td>&lt;code>&amp;lt;path&amp;gt;&lt;/code>&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>缺省为接口名&lt;/td>
-&lt;td>服务发现&lt;/td>
-&lt;td>服务路径 (注意：1.0不支持自定义路径，总是使用接口名，如果有1.0调2.0，配置服务路径可能不兼容)&lt;/td>
-&lt;td>1.0.12以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>delay&lt;/td>
-&lt;td>delay&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>0&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>延迟注册服务时间(毫秒) ，设为-1时，表示延迟到Spring容器初始化完成时暴露服务&lt;/td>
-&lt;td>1.0.14以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>timeout&lt;/td>
-&lt;td>timeout&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>1000&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>远程服务调用超时时间(毫秒)&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>retries&lt;/td>
-&lt;td>retries&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>2&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>远程服务调用重试次数，不包括第一次调用，不需要重试请设为0&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>connections&lt;/td>
-&lt;td>connections&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>100&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>对每个提供者的最大连接数，rmi、http、hessian等短连接协议表示限制连接数，dubbo等长连接协表示建立的长连接个数&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>loadbalance&lt;/td>
-&lt;td>loadbalance&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>random&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>负载均衡策略，可选值：random,roundrobin,leastactive，分别表示：随机，轮询，最少活跃调用&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>async&lt;/td>
-&lt;td>async&lt;/td>
-&lt;td>boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>是否缺省异步执行，不可靠异步，只是忽略返回值，不阻塞执行线程&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>local&lt;/td>
-&lt;td>local&lt;/td>
-&lt;td>class/boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>设为true，表示使用缺省代理类名，即：接口名 + Local后缀，已废弃，请使用stub&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>stub&lt;/td>
-&lt;td>stub&lt;/td>
-&lt;td>class/boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>设为true，表示使用缺省代理类名，即：接口名 + Stub后缀，服务接口客户端本地代理类名，用于在客户端执行本地逻辑，如本地缓存等，该本地代理类的构造函数必须允许传入远程代理对象，构造函数如：public XxxServiceStub(XxxService xxxService)&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>mock&lt;/td>
-&lt;td>mock&lt;/td>
-&lt;td>class/boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>设为true，表示使用缺省Mock类名，即：接口名 + Mock后缀，服务接口调用失败Mock实现类，该Mock类必须有一个无参构造函数，与Local的区别在于，Local总是被执行，而Mock只在出现非业务异常(比如超时，网络异常等)时执行，Local在远程调用之前执行，Mock在远程调用后执行。&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>token&lt;/td>
-&lt;td>token&lt;/td>
-&lt;td>string/boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>令牌验证，为空表示不开启，如果为true，表示随机生成动态令牌，否则使用静态令牌，令牌的作用是防止消费者绕过注册中心直接访问，保证注册中心的授权功能有效，如果使用点对点调用，需关闭令牌功能&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>registry&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>缺省向所有registry注册&lt;/td>
-&lt;td>配置关联&lt;/td>
-&lt;td>向指定注册中心注册，在多个注册中心时使用，值为&lt;a href="dubbo:registry">dubbo:registry&lt;/a>的id属性，多个注册中心ID用逗号分隔，如果不想将该服务注册到任何registry，可将值设为N/A&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>provider&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>缺省使用第一个provider配置&lt;/td>
-&lt;td>配置关联&lt;/td>
-&lt;td>指定provider，值为&lt;a href="dubbo:provider">dubbo:provider&lt;/a>的id属性&lt;/td>
-&lt;td>2.0.0以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>deprecated&lt;/td>
-&lt;td>deprecated&lt;/td>
-&lt;td>boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>服务是否过时，如果设为true，消费方引用时将打印服务过时警告error日志&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>dynamic&lt;/td>
-&lt;td>dynamic&lt;/td>
-&lt;td>boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>true&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>服务是否动态注册，如果设为false，注册后将显示后disable状态，需人工启用，并且服务提供者停止时，也不会自动取消册，需人工禁用。 2.0.5以上版本&lt;/td>
-&lt;td>&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>accesslog&lt;/td>
-&lt;td>accesslog&lt;/td>
-&lt;td>string/boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>false&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>设为true，将向logger中输出访问日志，也可填写访问日志文件路径，直接把访问日志输出到指定文件&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>owner&lt;/td>
-&lt;td>owner&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>服务负责人，用于服务治理，请填写负责人公司邮箱前缀&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>document&lt;/td>
-&lt;td>document&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>服务文档URL&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>weight&lt;/td>
-&lt;td>weight&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>服务权重&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>executes&lt;/td>
-&lt;td>executes&lt;/td>
-&lt;td>int&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>0&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>服务提供者每服务每方法最大可并行执行请求数&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>proxy&lt;/td>
-&lt;td>proxy&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>javassist&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>生成动态代理方式，可选：jdk/javassist&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>cluster&lt;/td>
-&lt;td>cluster&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>failover&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>集群方式，可选：failover/failfast/failsafe/failback/forking&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>filter&lt;/td>
-&lt;td>service.filter&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>default&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>服务提供方远程调用过程拦截器名称，多个名称用逗号分隔&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>listener&lt;/td>
-&lt;td>exporter.listener&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>default&lt;/td>
-&lt;td>性能调优&lt;/td>
-&lt;td>服务提供方导出服务监听器名称，多个名称用逗号分隔&lt;/td>
-&lt;td>&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>protocol&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>&lt;/td>
-&lt;td>配置关联&lt;/td>
-&lt;td>使用指定的协议暴露服务，在多协议时使用，值为&lt;a href="dubbo:protocol">dubbo:protocol&lt;/a>的id属性，多个协议ID用逗号分隔&lt;/td>
-&lt;td>2.0.5以上版本&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>layer&lt;/td>
-&lt;td>layer&lt;/td>
-&lt;td>string&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>服务提供者所在的分层。如：biz、dao、intl:web、china:acton。&lt;/td>
-&lt;td>2.0.7以上版本&lt;/td>
-&lt;td>&lt;/td>
-&lt;/tr>
-&lt;tr>
-&lt;td>register&lt;/td>
-&lt;td>register&lt;/td>
-&lt;td>boolean&lt;/td>
-&lt;td>可选&lt;/td>
-&lt;td>true&lt;/td>
-&lt;td>服务治理&lt;/td>
-&lt;td>该协议的服务是否注册到注册中心&lt;/td>
-&lt;td>2.0.8以上版本&lt;/td>
-&lt;/tr>
-&lt;/tbody>
-&lt;/table>
-&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/2-qi-dong-fu-wu-qian-fu-wu-pei-zhi-serviceconfig-lei-xing-shi-ru-he-chu-shi-hua-de/">&amp;laquo;ServiceConfig对象的建模&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 03-框架,应用程序,模块领域模型Model对象的初始化</title><link>https://dubbo.apache.org/zh/blog/2022/08/06/03-%E6%A1%86%E6%9E%B6%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A8%A1%E5%9D%97%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8Bmodel%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</link><pubDate>Sat, 06 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/06/03-%E6%A1%86%E6%9E%B6%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A8%A1%E5%9D%97%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8Bmodel%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</guid><description>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ExtensionDirector类型的createExtensionLoader0方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> &lt;span style="color:#268bd2">createExtensionLoader0&lt;/span>&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> type&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//检查当前扩展访问器是否被销毁掉了
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> checkDestroyed&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;&lt;/span> loader&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为当前扩展类型创建一个扩展访问器并缓存到,当前成员变量extensionLoadersMap中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> extensionLoadersMap&lt;span style="color:#719e07">.&lt;/span>putIfAbsent&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;(&lt;/span>type&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">,&lt;/span> scopeModel&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> loader &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>ExtensionLoader&lt;span style="color:#719e07">&amp;lt;&lt;/span>T&lt;span style="color:#719e07">&amp;gt;)&lt;/span> extensionLoadersMap&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">(&lt;/span>type&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> loader&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="443-扩展加载器对象extensionloader的构造器">4.4.3 扩展加载器对象ExtensionLoader的构造器&lt;/h3>
+&lt;p>扩展加载器相对来说是比较复杂的实现内容比较多,用到哪里我们说下哪里,这里先来看ExtensionLoader的构造器代码如下所示:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> ExtensionLoader&lt;span style="color:#719e07">(&lt;/span>Class&lt;span style="color:#719e07">&amp;lt;?&amp;gt;&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> ExtensionDirector extensionDirector&lt;span style="color:#719e07">,&lt;/span> ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//当前扩展加载器,需要加载的扩展的类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>type &lt;span style="color:#719e07">=&lt;/span> type&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//创建扩展加载器的扩展访问器对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>extensionDirector &lt;span style="color:#719e07">=&lt;/span> extensionDirector&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//从扩展访问器中获取扩展执行前后的回调器
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>extensionPostProcessors &lt;span style="color:#719e07">=&lt;/span> extensionDirector&lt;span style="color:#719e07">.&lt;/span>getExtensionPostProcessors&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//创建实例化对象的策略对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> initInstantiationStrategy&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//如果当前扩展类型为扩展注入器类型则设置当前注入器变量为空,否则的话获取一个扩展注入器扩展对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>injector &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>type &lt;span style="color:#719e07">==&lt;/span> ExtensionInjector&lt;span style="color:#719e07">.&lt;/span>class &lt;span style="color:#719e07">?&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">:&lt;/span> extensionDirector&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ExtensionInjector&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//创建Activate注解的排序器
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>activateComparator &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ActivateComparator&lt;span style="color:#719e07">(&lt;/span>extensionDirector&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为扩展加载器下的域模型对象赋值
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel &lt;span style="color:#719e07">=&lt;/span> scopeModel&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>先来看 创建实例化对象的策略对象代码 initInstantiationStrategy();&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">initInstantiationStrategy&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">for&lt;/span> &lt;span style="color:#719e07">(&lt;/span>ExtensionPostProcessor extensionPostProcessor &lt;span style="color:#719e07">:&lt;/span> extensionPostProcessors&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//ScopeModelAwareExtensionProcessor在域模型对象时候为扩展访问器添加了这个域模型扩展处理器对象ScopeModelAwareExtensionProcessor,这个类型实现了ScopeModelAccessor域模型访问器可以用来获取域模型对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>extensionPostProcessor &lt;span style="color:#719e07">instanceof&lt;/span> ScopeModelAccessor&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> instantiationStrategy &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> InstantiationStrategy&lt;span style="color:#719e07">((&lt;/span>ScopeModelAccessor&lt;span style="color:#719e07">)&lt;/span> extensionPostProcessor&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">break&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>instantiationStrategy &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> instantiationStrategy &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> InstantiationStrategy&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>再来看ExtensionInjector扩展对象的获取&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//1)这里有个type为空的判断,普通的扩展类型肯定不是ExtensionInjector类型 这里必定会为每个非扩展注入ExtensionInjector类型创建一个ExtensionInjector类型的扩展对象,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//2) 这里代码会走extensionDirector.getExtensionLoader(ExtensionInjector.class)这一步进去之后的代码刚刚看过就不再看了,这个代码会创建一个为ExtensionInjector扩展对象的加载器对象ExtensionLoader
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">//3) getAdaptiveExtension() 这个方法就是通过扩展加载器获取具体的扩展对象的方法我们会详细说
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>injector &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">(&lt;/span>type &lt;span style="color:#719e07">==&lt;/span> ExtensionInjector&lt;span style="color:#719e07">.&lt;/span>class &lt;span style="color:#719e07">?&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">:&lt;/span> extensionDirector&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ExtensionInjector&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/4-dubbo-de-spi-kuo-zhan-ji-zhi-yu-extensionloader-dui-xiang-de-chuang-jian-yuan-ma-jie-xi/">&amp;laquo;Dubbo的扩展机制&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 03-框架,应用程序,模块领域模型Model对象的初始化</title><link>https://dubbo.apache.org/zh/blog/2022/08/03/03-%E6%A1%86%E6%9E%B6%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A8%A1%E5%9D%97%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8Bmodel%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</link><pubDate>Wed, 03 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/03/03-%E6%A1%86%E6%9E%B6%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E6%A8%A1%E5%9D%97%E9%A2%86%E5%9F%9F%E6%A8%A1%E5%9E%8Bmodel%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</guid><description>
 &lt;h1 id="3-框架应用程序模块领域模型model对象的初始化">3-框架,应用程序,模块领域模型Model对象的初始化&lt;/h1>
 &lt;p>在上一章中我们详细看了服务配置ServiceConfig类型的初始化,不过我们跳过了AbstractMethodConfig的构造器中创建模块模型对象的过程,那这一章我们就来看下模块模型对象的初始化过程:&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractMethodConfig&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
@@ -1395,7 +1272,508 @@ FrameworkModel 重置默认的应用模型对象 resetDefaultAppModel()方法
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/3-kuang-jia-ying-yong-cheng-xu-mo-kuai-ling-yu-mo-xing-model-dui-xiang-de-chu-shi-hua/">&amp;laquo;框架,应用程序,模块领域模型Model对象的初始化&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 01 从一个服务提供者的Demo说起</title><link>https://dubbo.apache.org/zh/blog/2022/07/30/01-%E4%BB%8E%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E6%8F%90%E4%BE%9B%E8%80%85%E7%9A%84demo%E8%AF%B4%E8%B5%B7/</link><pubDate>Sat, 30 Jul 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/07/30/01-%E4%BB%8E%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E6%8F%90%E4%BE%9B%E8%80%85%E7%9A%84demo%E8%AF%B4%E8%B5%B7/</guid><description>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/3-kuang-jia-ying-yong-cheng-xu-mo-kuai-ling-yu-mo-xing-model-dui-xiang-de-chu-shi-hua/">&amp;laquo;框架,应用程序,模块领域模型Model对象的初始化&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 02-启动服务前服务配置ServiceConfig类型是如何初始化的?</title><link>https://dubbo.apache.org/zh/blog/2022/08/02/02-%E5%90%AF%E5%8A%A8%E6%9C%8D%E5%8A%A1%E5%89%8D%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AEserviceconfig%E7%B1%BB%E5%9E%8B%E6%98%AF%E5%A6%82%E4%BD%95%E5%88%9D%E5%A7%8B%E5%8C%96%E7%9A%84/</link><pubDate>Tue, 02 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/02/02-%E5%90%AF%E5%8A%A8%E6%9C%8D%E5%8A%A1%E5%89%8D%E6%9C%8D%E5%8A%A1%E9%85%8D%E7%BD%AEserviceconfig%E7%B1%BB%E5%9E%8B%E6%98%AF%E5%A6%82%E4%BD%95%E5%88%9D%E5%A7%8B%E5%8C%96%E7%9A%84/</guid><description>
+&lt;h1 id="2-启动服务前服务配置serviceconfig类型是如何初始化的">2-启动服务前服务配置ServiceConfig类型是如何初始化的?&lt;/h1>
+&lt;h2 id="21-示例源码回顾">2.1 示例源码回顾:&lt;/h2>
+&lt;p>为了方便我们理解记忆,这里先来回顾下上一章我们说的示例代码,如下所示:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">class&lt;/span> &lt;span style="color:#268bd2">Application&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">main&lt;/span>&lt;span style="color:#719e07">(&lt;/span>String&lt;span style="color:#719e07">[]&lt;/span> args&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#268bd2">throws&lt;/span> Exception &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> startWithBootstrap&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">startWithBootstrap&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> service&lt;span style="color:#719e07">.&lt;/span>setInterface&lt;span style="color:#719e07">(&lt;/span>DemoService&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> service&lt;span style="color:#719e07">.&lt;/span>setRef&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> DemoServiceImpl&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>protocol&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ProtocolConfig&lt;span style="color:#719e07">(&lt;/span>CommonConstants&lt;span style="color:#719e07">.&lt;/span>DUBBO&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">-&lt;/span>1&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>service&lt;span style="color:#719e07">(&lt;/span>service&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>start&lt;span style="color:#719e07">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>await&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上面这几行代码虽然看似简单,仅仅几行的启动,但是完全掌握也得下一翻大功夫,接下来我们重点看启动代码中的第一行,创建一个服务配置对象:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="22-了解一下服务配置的建模">2.2 了解一下服务配置的建模&lt;/h2>
+&lt;p>下面是一个简单的UML继承关系图,当然这个图很是简单的,这里仅仅列出了当前服务提供者的相关服务配置继承关系, 服务提供者独有的配置标注颜色为蓝色,一些可能与服务引用配置所共有的父类型我们用红色背景,当然这里为了简便起见不会提起服务引用相关的配置类型,这里列举了如下服务提供者类型,他们各司其职:
+&lt;img src="https://dubbo.apache.org/imgs/blog/source-blog/2-ServiceConfig.png" alt="在这里插入图片描述">&lt;/p>
+&lt;center>图2.1 服务引用类继承关系UML&lt;/center>
+&lt;ul>
+&lt;li>AbstractConfig
+&lt;ul>
+&lt;li>&lt;strong>抽象的配置类型&lt;/strong>,也是最顶层的服务配置类型,封装着解析配置的实用方法和公共方法,比如服务id的设置,服务标签名字的处理,服务参数的添加,属性的提取等等&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>AbstractMethodConfig
+&lt;ul>
+&lt;li>&lt;strong>抽象的方法配置&lt;/strong>,同样这个类型也是见名知意,服务方法的相关配置处理,这个类型主要用于对服务方法的一些配置信息建模比如服务方法的调用超时时间,重试次数,最大并发调用数,负载均衡策略,是否异步调用,是否确认异步发送等等配置信息.&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>AbstractInterfaceConfig
+&lt;ul>
+&lt;li>&lt;strong>抽象的接口配置&lt;/strong>,与前面介绍的方法配置类似,这个类型是对服务接口的建模,主要的配置信息有暴漏服务的接口名字,服务接口的版本号,客户/提供方将引用的远程服务分组,&lt;strong>服务元数据&lt;/strong>,服务接口的本地impl类名,服务监控配置,对于生成动态代理的策略，可以选择两种策略：jdk和javassist,容错类型等等配置&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>AbstractServiceConfig
+- &lt;strong>抽象的服务配置&lt;/strong>,这个就与我们的服务提供者有了具体的关系了,主要记录了一些服务提供者的公共配置,如服务版本,服务分组,服务延迟注册毫秒数,是否暴漏服务,服务权重,是否为动态服务,服务协议类型,是否注册等等.&lt;/li>
+&lt;li>ServiceConfigBase
+- &lt;strong>服务的基础配置类&lt;/strong>,这个类型仍旧是个抽象的类型提取了一些基础的配置:导出服务的接口类,服务名称,接口实现的引用类型,提供者配置,是否是通用服务GenericService&lt;/li>
+&lt;li>ServiceConfig
+- &lt;strong>服务配置实现类&lt;/strong>, 上面的类型都是抽象类型不能做为具体存在的事物,这个类型是我们出现的第一个服务配置实现类型,服务配置实现类已经从父类型中继承了这么多的属性,这里主要为实现服务提供了一些配置如服务的协议配置,服务的代理工厂JavassistProxyFactory是将生成导出服务代理的ProxyFactory实现，是其默认实现,服务提供者模型,是否导出服务,导出的服务列表,服务监听器等等.&lt;/li>
+&lt;li>ServiceBean
+- &lt;strong>服务工厂Bean&lt;/strong> ,这个主要是Spring模块来简化配置的一个服务工厂Bean这里就先不详细介绍Spring相关的配置. -&lt;/li>
+&lt;/ul>
+&lt;h2 id="23-serviceconfig构造器的初始化调用链">2.3 ServiceConfig构造器的初始化调用链&lt;/h2>
+&lt;p>有了上面的类型继承关系我们就比较好分析了,接下来我们开始创建服务配置对象如下代码所示:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>根据Java基础的构造器知识,在每个构造器的第一行都会有个super方法来调用父类的构造器,当前这个super方法我们可以不写但是Java编译器底层还是会为我们默认加上这么一行super()代码来调用父类构造器的.&lt;/p>
+&lt;p>对于上面我提到的这几个构造器&lt;strong>根据代码被调用的先后顺序&lt;/strong>,这里重点说几个重要的,这里我仍旧按代码执行的先后顺序来说:&lt;/p>
+&lt;h3 id="231-父类型abstractmethodconfig构造器的初始化">2.3.1 父类型AbstractMethodConfig构造器的初始化&lt;/h3>
+&lt;p>根据super调用链这里先来看AbstractMethodConfig抽象方法配置&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractMethodConfig&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel&lt;span style="color:#719e07">.&lt;/span>defaultModel&lt;span style="color:#719e07">().&lt;/span>getDefaultModule&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>在这个构造器中只有个super方法用来调用父类型的构造器,但是在调用之前会先使用代码 &lt;strong>ApplicationModel.defaultModel().getDefaultModule()&lt;/strong> 创建一个模块模型对象&lt;strong>ModuleModel&lt;/strong>
+关于模型对象的细节我们会在下个章节来说,这里我们继续来看调用链&lt;/p>
+&lt;h3 id="232-最顶层类型abstractconfig构造器的初始化">2.3.2 最顶层类型AbstractConfig构造器的初始化&lt;/h3>
+&lt;p>&lt;strong>AbstractConfig&lt;/strong>的构造器初始化一共有两个,第一个步骤就是创建一个应用程序模型对象&lt;strong>ApplicationModel&lt;/strong>,刚刚我们在&lt;strong>AbstractMethodConfig&lt;/strong>的构造器中了解到使用这个代码&lt;strong>ApplicationModel.defaultModel().getDefaultModule()&lt;strong>创建了个模块模型对象&lt;/strong>ModuleModel&lt;/strong>,具体他们细节我们下一章细说,了解了子类型&lt;strong>AbstractMethodConfig&lt;/strong>的构造器是带参数的那我们就直接看第二个构造器&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractConfig&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel&lt;span style="color:#719e07">.&lt;/span>defaultModel&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>将会调用第二个构造器初始化域模型&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">AbstractConfig&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>当前类型设置ScopeModel类型对象&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">final&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">setScopeModel&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//第一次初始化的当前成员变量是空的可以设置变量
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//检查参数是否合法
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> checkScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ScopeModel oldScopeModel &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel &lt;span style="color:#719e07">=&lt;/span> scopeModel&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// reinitialize spi extension and change referenced config&amp;#39;s scope model
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//被子类重写的方法,根据多态会调用具体子类型的这个方法我们下面来看
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//子类应该重写此方法以初始化其SPI扩展并更改引用的配置的范围模型。
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>检查ScopeModel参数是否合法,合法的参数是不能为空并且必须是ApplicationModel类型或者子类型&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">checkScopeModel&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>scopeModel &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;scopeModel cannot be null&amp;#34;&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!(&lt;/span>scopeModel &lt;span style="color:#719e07">instanceof&lt;/span> ApplicationModel&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Invalid scope model, expect to be a ApplicationModel but got: &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h4 id="2321-重写的postprocessafterscopemodelchanged调用逻辑">2.3.2.1 重写的postProcessAfterScopeModelChanged调用逻辑&lt;/h4>
+&lt;p>当ScopeModel模型对象发生了改变,上面调用了postProcessAfterScopeModelChanged方法来通知模型对象改变的时候要执行的操作,根据多态重写的逻辑我们从实现类的postProcessAfterScopeModelChanged来看,在下面的调用链路中部分父类型并未实现postProcessAfterScopeModelChanged方法我们就直接忽略了&lt;/p>
+&lt;p>第一个被调用到的是&lt;strong>ServiceConfig&lt;/strong>类型的postProcessAfterScopeModelChanged方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化当前协议对象,通过扩展机制获取协议Protocol类型的对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> protocolSPI &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>Protocol&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化当前代理工厂对象,通过扩展机制获取ProxyFactory类型的对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> proxyFactory &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ProxyFactory&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getAdaptiveExtension&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第二个被调用到的方法为&lt;strong>ServiceConfigBase&lt;/strong>的postProcessAfterScopeModelChanged方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//当服务提供者配置对象不为空时候为服务提供者对象设置域模型,这里服务提供者对象仍旧为空,这个一般用在兼容Dubbo低版本
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>provider&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>第三个被调用到的是&lt;strong>AbstractInterfaceConfig&lt;/strong>类型的postProcessAfterScopeModelChanged方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">super&lt;/span>&lt;span style="color:#719e07">.&lt;/span>postProcessAfterScopeModelChanged&lt;span style="color:#719e07">(&lt;/span>oldScopeModel&lt;span style="color:#719e07">,&lt;/span> newScopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// remove this config from old ConfigManager
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// if (oldScopeModel != null &amp;amp;&amp;amp; oldScopeModel instanceof ModuleModel) {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ((ModuleModel)oldScopeModel).getConfigManager().removeConfig(this);
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// }
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// change referenced config&amp;#39;s scope model
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//获取应用程序模型对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ApplicationModel applicationModel &lt;span style="color:#719e07">=&lt;/span> ScopeModelUtil&lt;span style="color:#719e07">.&lt;/span>getApplicationModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为配置中心对象设置ApplicationModel类型对象(当前阶段配置中心配置对象为空)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>configCenter&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为元数据配置对象设置ApplicationModel类型对象(当前阶段数据配置配置对象为空)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为MonitorConfig服务监控配置对象设置ApplicationModel类型对象(当前阶段数据配置配置对象为空)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>monitor&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//这哥if判断和上面的上面是重复的估计是写代码人加班加的太久了,没注意看
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>metadataReportConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//如果注册中心配置列表不为空则为每个注册中心配置设置一个ApplicationModel类型对象(当前注册中心对象都为空)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>CollectionUtils&lt;span style="color:#719e07">.&lt;/span>isNotEmpty&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>registries&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>registries&lt;span style="color:#719e07">.&lt;/span>forEach&lt;span style="color:#719e07">(&lt;/span>registryConfig &lt;span style="color:#719e07">-&amp;gt;&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>registryConfig&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> registryConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>最后被调用到的是最顶层父类型&lt;strong>AbstractConfig&lt;/strong>的postProcessAfterScopeModelChanged方法
+这个方法什么也没干只是在父类型创建的模版方法让子类型来重写用的&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">protected&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">postProcessAfterScopeModelChanged&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ScopeModel oldScopeModel&lt;span style="color:#719e07">,&lt;/span> ScopeModel newScopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// remove this config from old ConfigManager
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// if (oldScopeModel != null &amp;amp;&amp;amp; oldScopeModel instanceof ApplicationModel) {
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// ((ApplicationModel)oldScopeModel).getApplicationConfigManager().removeConfig(this);
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">// }
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="233-serviceconfigbase构造器的初始化">2.3.3 ServiceConfigBase构造器的初始化&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">ServiceConfigBase&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//服务元数据对象创建
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> serviceMetadata &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceMetadata&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为服务元数据对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> serviceMetadata&lt;span style="color:#719e07">.&lt;/span>addAttribute&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;ORIGIN_CONFIG&amp;#34;&lt;/span>&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>&lt;strong>注意，&lt;/strong> &lt;strong>ServiceMetadata&lt;/strong>这个类目前在Dubbo中没有用法。与服务级别相关的数据，例如名称、版本、业务服务的类加载器、安全信息等，还带有用于扩展的AttributeMap。&lt;/p>
+&lt;p>&lt;strong>服务配置对象的创建过程就这样结束了&lt;/strong>,当然有一些细节会&lt;strong>放到后面来写&lt;/strong>
+上面主要顺序是按照代码执行的顺序来写的部分地方可能稍微做了调整,如果有条件的同学一定要&lt;strong>自己进行DEBUG&lt;/strong>了解下细节.&lt;/p>
+&lt;p>关于服务配置官网提供了xml的配置信息这里我拷贝过来,可以做为参考:
+当然这个配置不是最新的比如服务配置的&lt;strong>标签配置tag&lt;/strong>,
+&lt;strong>warmup 预热时间&lt;/strong>单位毫秒,暂时还没有说明&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>属性&lt;/th>
+&lt;th>对应URL参数&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>是否必填&lt;/th>
+&lt;th>缺省值&lt;/th>
+&lt;th>作用&lt;/th>
+&lt;th>描述&lt;/th>
+&lt;th>兼容性&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>interface&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>class&lt;/td>
+&lt;td>必填&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>服务接口名&lt;/td>
+&lt;td>1.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>ref&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>object&lt;/td>
+&lt;td>必填&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>服务对象实现引用&lt;/td>
+&lt;td>1.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>version&lt;/td>
+&lt;td>version&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>0.0.0&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>服务版本，建议使用两位数字版本，如：1.0，通常在接口不兼容时版本号才需要升级&lt;/td>
+&lt;td>1.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>group&lt;/td>
+&lt;td>group&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>服务分组，当一个接口有多个实现，可以用分组区分&lt;/td>
+&lt;td>1.0.7以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>path&lt;/td>
+&lt;td>&lt;code>&amp;lt;path&amp;gt;&lt;/code>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>缺省为接口名&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>服务路径 (注意：1.0不支持自定义路径，总是使用接口名，如果有1.0调2.0，配置服务路径可能不兼容)&lt;/td>
+&lt;td>1.0.12以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>delay&lt;/td>
+&lt;td>delay&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>延迟注册服务时间(毫秒) ，设为-1时，表示延迟到Spring容器初始化完成时暴露服务&lt;/td>
+&lt;td>1.0.14以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>timeout&lt;/td>
+&lt;td>timeout&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>1000&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>远程服务调用超时时间(毫秒)&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>retries&lt;/td>
+&lt;td>retries&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>2&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>远程服务调用重试次数，不包括第一次调用，不需要重试请设为0&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>connections&lt;/td>
+&lt;td>connections&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>100&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>对每个提供者的最大连接数，rmi、http、hessian等短连接协议表示限制连接数，dubbo等长连接协表示建立的长连接个数&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>loadbalance&lt;/td>
+&lt;td>loadbalance&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>random&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>负载均衡策略，可选值：random,roundrobin,leastactive，分别表示：随机，轮询，最少活跃调用&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>async&lt;/td>
+&lt;td>async&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>是否缺省异步执行，不可靠异步，只是忽略返回值，不阻塞执行线程&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>local&lt;/td>
+&lt;td>local&lt;/td>
+&lt;td>class/boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>设为true，表示使用缺省代理类名，即：接口名 + Local后缀，已废弃，请使用stub&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>stub&lt;/td>
+&lt;td>stub&lt;/td>
+&lt;td>class/boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>设为true，表示使用缺省代理类名，即：接口名 + Stub后缀，服务接口客户端本地代理类名，用于在客户端执行本地逻辑，如本地缓存等，该本地代理类的构造函数必须允许传入远程代理对象，构造函数如：public XxxServiceStub(XxxService xxxService)&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>mock&lt;/td>
+&lt;td>mock&lt;/td>
+&lt;td>class/boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>设为true，表示使用缺省Mock类名，即：接口名 + Mock后缀，服务接口调用失败Mock实现类，该Mock类必须有一个无参构造函数，与Local的区别在于，Local总是被执行，而Mock只在出现非业务异常(比如超时，网络异常等)时执行，Local在远程调用之前执行，Mock在远程调用后执行。&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>token&lt;/td>
+&lt;td>token&lt;/td>
+&lt;td>string/boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>令牌验证，为空表示不开启，如果为true，表示随机生成动态令牌，否则使用静态令牌，令牌的作用是防止消费者绕过注册中心直接访问，保证注册中心的授权功能有效，如果使用点对点调用，需关闭令牌功能&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>registry&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>缺省向所有registry注册&lt;/td>
+&lt;td>配置关联&lt;/td>
+&lt;td>向指定注册中心注册，在多个注册中心时使用，值为&lt;a href="dubbo:registry">dubbo:registry&lt;/a>的id属性，多个注册中心ID用逗号分隔，如果不想将该服务注册到任何registry，可将值设为N/A&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>provider&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>缺省使用第一个provider配置&lt;/td>
+&lt;td>配置关联&lt;/td>
+&lt;td>指定provider，值为&lt;a href="dubbo:provider">dubbo:provider&lt;/a>的id属性&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>deprecated&lt;/td>
+&lt;td>deprecated&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务是否过时，如果设为true，消费方引用时将打印服务过时警告error日志&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>dynamic&lt;/td>
+&lt;td>dynamic&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务是否动态注册，如果设为false，注册后将显示后disable状态，需人工启用，并且服务提供者停止时，也不会自动取消册，需人工禁用。 2.0.5以上版本&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>accesslog&lt;/td>
+&lt;td>accesslog&lt;/td>
+&lt;td>string/boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>设为true，将向logger中输出访问日志，也可填写访问日志文件路径，直接把访问日志输出到指定文件&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>owner&lt;/td>
+&lt;td>owner&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务负责人，用于服务治理，请填写负责人公司邮箱前缀&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>document&lt;/td>
+&lt;td>document&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务文档URL&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>weight&lt;/td>
+&lt;td>weight&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>服务权重&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>executes&lt;/td>
+&lt;td>executes&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>服务提供者每服务每方法最大可并行执行请求数&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>proxy&lt;/td>
+&lt;td>proxy&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>javassist&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>生成动态代理方式，可选：jdk/javassist&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cluster&lt;/td>
+&lt;td>cluster&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>failover&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>集群方式，可选：failover/failfast/failsafe/failback/forking&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>filter&lt;/td>
+&lt;td>service.filter&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>default&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>服务提供方远程调用过程拦截器名称，多个名称用逗号分隔&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>listener&lt;/td>
+&lt;td>exporter.listener&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>default&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>服务提供方导出服务监听器名称，多个名称用逗号分隔&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>protocol&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>配置关联&lt;/td>
+&lt;td>使用指定的协议暴露服务，在多协议时使用，值为&lt;a href="dubbo:protocol">dubbo:protocol&lt;/a>的id属性，多个协议ID用逗号分隔&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>layer&lt;/td>
+&lt;td>layer&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务提供者所在的分层。如：biz、dao、intl:web、china:acton。&lt;/td>
+&lt;td>2.0.7以上版本&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>register&lt;/td>
+&lt;td>register&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>该协议的服务是否注册到注册中心&lt;/td>
+&lt;td>2.0.8以上版本&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/2-qi-dong-fu-wu-qian-fu-wu-pei-zhi-serviceconfig-lei-xing-shi-ru-he-chu-shi-hua-de/">&amp;laquo;ServiceConfig对象的建模&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 01 从一个服务提供者的Demo说起</title><link>https://dubbo.apache.org/zh/blog/2022/08/01/01-%E4%BB%8E%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E6%8F%90%E4%BE%9B%E8%80%85%E7%9A%84demo%E8%AF%B4%E8%B5%B7/</link><pubDate>Mon, 01 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/01/01-%E4%BB%8E%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E6%8F%90%E4%BE%9B%E8%80%85%E7%9A%84demo%E8%AF%B4%E8%B5%B7/</guid><description>
 &lt;h1 id="1-从一个服务提供者的demo说起">1 从一个服务提供者的Demo说起&lt;/h1>
 &lt;p>为了更方便了解原理,我们先来编写一个Demo,从例子中来看源码实现:&lt;/p>
 &lt;h2 id="11-启动zookeeper">1.1 启动Zookeeper&lt;/h2>
