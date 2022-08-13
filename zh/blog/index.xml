@@ -1,4 +1,91 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Apache Dubbo 博客</title><link>https://dubbo.apache.org/zh/blog/</link><description>Recent content in Apache Dubbo 博客 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 7-Dubbo的SPI扩展机制之自动激活扩展Activate源码解析</title><link>https://dubbo.apache.org/zh/blog/2022/08/07/7-dubbo%E7%9A%84spi%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6%E4%B9%8B%E8%87%AA%E5%8A%A8%E6%BF%80%E6%B4%BB%E6%89%A9%E5%B1%95activate%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</link><pubDate>Sun, 07 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/07/7-dubbo%E7%9A%84spi%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6%E4%B9%8B%E8%87%AA%E5%8A%A8%E6%BF%80%E6%B4%BB%E6%89%A9%E5%B1%95activate%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Apache Dubbo 博客</title><link>https://dubbo.apache.org/zh/blog/</link><description>Recent content in Apache Dubbo 博客 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 8-Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化</title><link>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</link><pubDate>Mon, 08 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</guid><description>
+&lt;h1 id="8-dubbo启动器dubbobootstrap借助双重校验锁的单例模式进行对象的初始化">8-Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化&lt;/h1>
+&lt;h2 id="81-启动器简介">8.1 启动器简介&lt;/h2>
+&lt;p>在说启动器之前先把视野拉回第一章&lt;a href="https://blog.elastic.link/2022/07/10/dubbo/1-cong-yi-ge-demo-shuo-qi/">《1-从一个服务提供者的Demo说起》&lt;/a>我们的Demo代码,下面只贴一下核心代码:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">class&lt;/span> &lt;span style="color:#268bd2">Application&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">main&lt;/span>&lt;span style="color:#719e07">(&lt;/span>String&lt;span style="color:#719e07">[]&lt;/span> args&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#268bd2">throws&lt;/span> Exception &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> startWithBootstrap&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">startWithBootstrap&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//前面的文章都在说这个服务配置对象的创建,中间又说了分层域模型,扩展加载机制
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&lt;/span>DemoServiceImpl&lt;span style="color:#719e07">&amp;gt;&lt;/span> service &lt;span style="color:#719e07">=&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ServiceConfig&lt;span style="color:#719e07">&amp;lt;&amp;gt;();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为服务配置下服务接口和服务实现,下面两行用来初始化对象就不详细说了
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> service&lt;span style="color:#719e07">.&lt;/span>setInterface&lt;span style="color:#719e07">(&lt;/span>DemoService&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> service&lt;span style="color:#719e07">.&lt;/span>setRef&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> DemoServiceImpl&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//这一个篇章主要说这里:
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>protocol&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ProtocolConfig&lt;span style="color:#719e07">(&lt;/span>CommonConstants&lt;span style="color:#719e07">.&lt;/span>DUBBO&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">-&lt;/span>1&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>service&lt;span style="color:#719e07">(&lt;/span>service&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>start&lt;span style="color:#719e07">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>await&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>Dubbo3 往云原生的方向走自然要针对云原生应用的应用启动,应用运行,应用发布等信息做一些建模,这个DubboBootstrap就是用来启动Dubbo服务的.类似于Netty的Bootstrap类型和ServerBootstrap启动器&lt;/p>
+&lt;h2 id="82-双重校验锁的单例模式创建启动器对象的">8.2 双重校验锁的单例模式创建启动器对象的&lt;/h2>
+&lt;p>Dubbo的bootstrap类为啥要用单例模式:&lt;/p>
+&lt;p>通过调用静态方法getInstance()获取单例实例。之所以设计为单例，是因为Dubbo中的一些类（如ExtensionLoader）只为每个进程设计一个实例。&lt;/p>
+&lt;p>下面就来直接看代码吧,代码胜千言:
+对象的调用代码如下:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>DubboBootstrap获取对象的getInstance()方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> DubboBootstrap &lt;span style="color:#268bd2">getInstance&lt;/span>&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//双重校验锁第一次判断空
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>instance &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//为空都进行排队
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#268bd2">synchronized&lt;/span> &lt;span style="color:#719e07">(&lt;/span>DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//双重校验锁第二次判断空 上面为空的都排队了这里得判断下
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>instance &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//调用重载方法获取对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> instance &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">(&lt;/span>ApplicationModel&lt;span style="color:#719e07">.&lt;/span>defaultModel&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> instance&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>DubboBootstrap获取对象重载的getInstance(ApplicationModel applicationModel)方法:&lt;/p>
+&lt;p>&lt;em>computeIfAbsent() 方法对 hashMap 中指定 key 的值进行重新计算，如果不存在这个 key，则添加到 hashMap 中。&lt;/em>&lt;/p>
+&lt;p>instanceMap设计为Map&amp;lt;ApplicationModel, DubboBootstrap&amp;gt;类型 Key,意味着可以为多个应用程序模型创建不同的启动器,启动多个服务&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">static&lt;/span> DubboBootstrap &lt;span style="color:#268bd2">getInstance&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> instanceMap&lt;span style="color:#719e07">.&lt;/span>computeIfAbsent&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">,&lt;/span> _k &lt;span style="color:#719e07">-&amp;gt;&lt;/span> &lt;span style="color:#719e07">new&lt;/span> DubboBootstrap&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="83-dubbobootstrap的构造器代码">8.3 DubboBootstrap的构造器代码&lt;/h2>
+&lt;p>构造器代码是逻辑比较复杂的地方,我们先来看下代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#268bd2">DubboBootstrap&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel applicationModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//存储应用程序启动模型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>applicationModel &lt;span style="color:#719e07">=&lt;/span> applicationModel&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//获取配置管理器ConfigManager: 配置管理器的扩展类型ApplicationExt ,扩展名字config
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configManager &lt;span style="color:#719e07">=&lt;/span> applicationModel&lt;span style="color:#719e07">.&lt;/span>getApplicationConfigManager&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//获取环境信息Environment: 环境信息的扩展类型为ApplicationExt,扩展名字为environment
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> environment &lt;span style="color:#719e07">=&lt;/span> applicationModel&lt;span style="color:#719e07">.&lt;/span>getModelEnvironment&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//执行器存储仓库(线程池)ExecutorRepository: 扩展类型为ExecutorRepository,默认扩展扩展名字为default
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> executorRepository &lt;span style="color:#719e07">=&lt;/span> applicationModel&lt;span style="color:#719e07">.&lt;/span>getExtensionLoader&lt;span style="color:#719e07">(&lt;/span>ExecutorRepository&lt;span style="color:#719e07">.&lt;/span>class&lt;span style="color:#719e07">).&lt;/span>getDefaultExtension&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//初始化并启动应用程序实例ApplicationDeployer,DefaultApplicationDeployer类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> applicationDeployer &lt;span style="color:#719e07">=&lt;/span> applicationModel&lt;span style="color:#719e07">.&lt;/span>getDeployer&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// listen deploy events
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//为发布器 设置生命周期回调
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> applicationDeployer&lt;span style="color:#719e07">.&lt;/span>addDeployListener&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> DeployListenerAdapter&lt;span style="color:#719e07">&amp;lt;&lt;/span>ApplicationModel&lt;span style="color:#719e07">&amp;gt;()&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">onStarted&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> notifyStarted&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">onStopped&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> notifyStopped&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@Override&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">onFailure&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationModel scopeModel&lt;span style="color:#719e07">,&lt;/span> Throwable cause&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> notifyStopped&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">});&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将启动器对象注册到应用程序模型applicationModel的Bean工厂中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">// register DubboBootstrap bean
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> applicationModel&lt;span style="color:#719e07">.&lt;/span>getBeanFactory&lt;span style="color:#719e07">().&lt;/span>registerBean&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/8-dubbo-qi-dong-qi-dubbobootstrap-jie-zhu-shuang-chong-xiao-yan-suo-de-dan-li-mo-shi-jin-xing-dui-xiang-de-chu-shi-hua/">&amp;laquo;Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 7-Dubbo的SPI扩展机制之自动激活扩展Activate源码解析</title><link>https://dubbo.apache.org/zh/blog/2022/08/07/7-dubbo%E7%9A%84spi%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6%E4%B9%8B%E8%87%AA%E5%8A%A8%E6%BF%80%E6%B4%BB%E6%89%A9%E5%B1%95activate%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</link><pubDate>Sun, 07 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/07/7-dubbo%E7%9A%84spi%E6%89%A9%E5%B1%95%E6%9C%BA%E5%88%B6%E4%B9%8B%E8%87%AA%E5%8A%A8%E6%BF%80%E6%B4%BB%E6%89%A9%E5%B1%95activate%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90/</guid><description>
 &lt;h1 id="7-dubbo的spi扩展机制之自动激活扩展activate源码解析">7-Dubbo的SPI扩展机制之自动激活扩展Activate源码解析&lt;/h1>
 &lt;h2 id="71-activate扩展的说明">7.1 Activate扩展的说明&lt;/h2>
 &lt;p>此注解对于使用给定条件自动激活某些扩展非常有用，例如：@Activate可用于在有多个实现时加载某些筛选器扩展。&lt;/p>
@@ -10110,112 +10197,4 @@ Task 派发采用 RoundRobin 方式。&lt;/p>
 &lt;p>&lt;img src="https://dubbo.apache.org/imgs/blog/dubbo-go/grpc/p13.webp" alt="">&lt;/p>
 &lt;p>还有DubboGrpcService接口：&lt;/p>
 &lt;p>&lt;img src="https://dubbo.apache.org/imgs/blog/dubbo-go/grpc/p14.webp" alt="">&lt;/p>
-&lt;p>这个东西，属于难者不会会者不难。就是如果你不知道可以通过plugin的形式来修改生成的代码，那就是真难；但是如果知道了，这个东西就很简单了——无非就是水磨工夫罢了。&lt;/p></description></item><item><title>Blog: 在dubbo-go中使用sentinel</title><link>https://dubbo.apache.org/zh/blog/2021/01/11/%E5%9C%A8dubbo-go%E4%B8%AD%E4%BD%BF%E7%94%A8sentinel/</link><pubDate>Mon, 11 Jan 2021 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2021/01/11/%E5%9C%A8dubbo-go%E4%B8%AD%E4%BD%BF%E7%94%A8sentinel/</guid><description>
-&lt;p>时至今日，Apache/dubbo-go（以下简称 dubbo-go ）项目在功能上已经逐步对齐java版本，稳定性也在不同的生产环境得到了验证。社区便开始再服务治理、监控等方向发力。随着 1.2和1.3 版本发布， dubbo-go 新增了大量此类新feature。&lt;/p>
-&lt;p>今天我们聊一聊限流相关话题，此前dubbo-go已经支持了&lt;a href="https://github.com/apache/dubbo-go/pull/237">tps limit&lt;/a>、&lt;a href="https://github.com/apache/dubbo-go/pull/246">execute limit &lt;/a>、&lt;a href="https://github.com/apache/dubbo-go/pull/133">hystrix&lt;/a> 的内置filter，用户只要简单配置就能马上用上。但我们知道，在 java 的 dubbo 生态中，有一项限流工具被广泛使用，那就是sentinel。sentinel因为强大的动态规划配置、优秀的dashboard以及对dubbo的良好适配，成为众多使用dubbo的企业选用限流工具的不二之选。&lt;/p>
-&lt;p>就在前些日子，社区非常高兴得知 Sentinel Golang 首个版本 0.1.0 正式发布，这使得 dubbo-go也可以使用 sentinel 作为工具进行一些服务治理、监控的工作了。随着sentinel golang的健壮，我们相信用户马上可以像sentinel管理java dubbo服务那样管理dubbo-go的服务了。&lt;/p>
-&lt;p>完成sentinel golang的dubbo-adapter其实非常简单，这得益于dubbo-go早就完成了filter链的构造，用户可以自定义filter，并且灵活的安排其执行顺序。在1.3发布后，增加了filter中的context传递，构建sentinel/adapter/dubbo更为方便。&lt;/p>
-&lt;p>我们以其中的provider filter适配为例:&lt;/p>
-&lt;p>&lt;img src="https://dubbo.apache.org/imgs/blog/dubbo-go/sentinel/dubbo-go-sentinel-provider-filter.png" alt="">&lt;/p>
-&lt;p>此 filter 实现了 dubbo-go的filter接口，只要用户在服务启动时将此filter加载到dubbo-go中，即可使用此filter。&lt;/p>
-&lt;p>&lt;img src="https://dubbo.apache.org/imgs/blog/dubbo-go/sentinel/sentinel-golang.png" alt="">&lt;/p>
-&lt;p>sentinel实现原理与其他限流、熔断库大同小异，底层是用的滑动窗口算法。与hystrix等框架相比不同点是设计理念，Sentinel 的设计理念是让您自由选择控制的角度，并进行灵活组合，从而达到想要的效果。&lt;/p>
-&lt;p>下面我整理了完整的使用流程：(注意：dubbo-go版本请使用1.3.0-rc3及其以上版本)&lt;/p>
-&lt;p>在dubbo-go中使用sentinel主要分为以下几步：&lt;/p>
-&lt;ol>
-&lt;li>初始化sentinel&lt;/li>
-&lt;li>将sentinel注入dubbo-go的filter&lt;/li>
-&lt;li>初始化dubbo-go&lt;/li>
-&lt;li>配置规划&lt;/li>
-&lt;/ol>
-&lt;h2 id="初始化sentinel">初始化sentinel&lt;/h2>
-&lt;p>示例代码：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">import&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sentinel &lt;span style="color:#2aa198">&amp;#34;github.com/alibaba/sentinel-golang/api&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">func&lt;/span> &lt;span style="color:#268bd2">initSentinel&lt;/span>() {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> err &lt;span style="color:#719e07">:=&lt;/span> sentinel.&lt;span style="color:#268bd2">InitWithLogDir&lt;/span>(confPath, logDir)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> err &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">nil&lt;/span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// 初始化 Sentinel 失败
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> }
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="将sentinel注入dubbo-go的filter">将sentinel注入dubbo-go的filter&lt;/h2>
-&lt;p>你可以通过import包的形式执行，执行其中的init()来注入filter&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">import&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/alibaba/sentinel-golang/adapter/dubbo&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>也可以手动执行，给你的filter取上自己想要的名字&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">import&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/common/extension&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sd &lt;span style="color:#2aa198">&amp;#34;github.com/alibaba/sentinel-golang/adapter/dubbo&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">func&lt;/span> &lt;span style="color:#268bd2">main&lt;/span>(){
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> extension.&lt;span style="color:#268bd2">SetFilter&lt;/span>(&lt;span style="color:#2aa198">&amp;#34;myConsumerFilter&amp;#34;&lt;/span>,sd.&lt;span style="color:#268bd2">GetConsumerFilter&lt;/span>())
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> extension.&lt;span style="color:#268bd2">SetFilter&lt;/span>(&lt;span style="color:#2aa198">&amp;#34;myProviderFilter&amp;#34;&lt;/span>,sd.&lt;span style="color:#268bd2">GetConsumerFilter&lt;/span>())
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>完成以上步骤，你就可以在需要的dubbo接口配置里写入sentinel的filterName,构建起接口的filter链条。比如以下以consumer.yml配置文件为例&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-yml" data-lang="yml">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">references&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;UserProvider&amp;#34;&lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">registry&lt;/span>: &lt;span style="color:#2aa198">&amp;#34;hangzhouzk&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">protocol &lt;/span>: &lt;span style="color:#2aa198">&amp;#34;dubbo&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">interface &lt;/span>: &lt;span style="color:#2aa198">&amp;#34;com.ikurento.user.UserProvider&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">cluster&lt;/span>: &lt;span style="color:#2aa198">&amp;#34;failover&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">filter&lt;/span>: &lt;span style="color:#2aa198">&amp;#34;myConsumerFilter&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">methods &lt;/span>:
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> - &lt;span style="color:#268bd2">name&lt;/span>: &lt;span style="color:#2aa198">&amp;#34;GetUser&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">retries&lt;/span>: &lt;span style="color:#2aa198">3&lt;/span>
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="初始化dubbo-go">初始化dubbo-go&lt;/h2>
-&lt;p>到这一步，你只需要正常启动dubbo-go程序就完成了服务启动。用以下代码做一个较为完整举例&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">import&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> hessian &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go-hessian2&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sd &lt;span style="color:#2aa198">&amp;#34;github.com/alibaba/sentinel-golang/adapter/dubbo&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">import&lt;/span> (
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/common/logger&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/common/proxy/proxy_factory&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/config&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/filter/impl&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/protocol/dubbo&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/registry/protocol&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/cluster/cluster_impl&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/cluster/loadbalance&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> _ &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/registry/zookeeper&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;github.com/apache/dubbo-go/common/extension&amp;#34;&lt;/span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>)
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">func&lt;/span> &lt;span style="color:#268bd2">main&lt;/span>() {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> hessian.&lt;span style="color:#268bd2">RegisterPOJO&lt;/span>(&lt;span style="color:#719e07">&amp;amp;&lt;/span>User{})
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> extension.&lt;span style="color:#268bd2">SetFilter&lt;/span>(&lt;span style="color:#2aa198">&amp;#34;myConsumerFilter&amp;#34;&lt;/span>,sd.&lt;span style="color:#268bd2">GetConsumerFilter&lt;/span>())
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> extension.&lt;span style="color:#268bd2">SetFilter&lt;/span>(&lt;span style="color:#2aa198">&amp;#34;myProviderFilter&amp;#34;&lt;/span>,sd.&lt;span style="color:#268bd2">GetConsumerFilter&lt;/span>())
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config.&lt;span style="color:#268bd2">Load&lt;/span>()
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// init finish, do your work
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#268bd2">test&lt;/span>()
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="规划配置">规划配置&lt;/h2>
-&lt;p>sentinel以强大的规划配置吸引了很多使用者，其提供动态数据源接口进行扩展，用户可以通过动态文件或 etcd 等配置中心来动态地配置规则。但目前sentinel-golang作为破蛋版本，动态配置还在开发中&lt;/p>
-&lt;h3 id="动态数据源">动态数据源&lt;/h3>
-&lt;p>（开发中）Sentinel 提供动态数据源接口进行扩展，用户可以通过动态文件或 etcd 等配置中心来动态地配置规则。&lt;/p>
-&lt;h3 id="硬编码方式">硬编码方式&lt;/h3>
-&lt;p>Sentinel 也支持原始的硬编码方式加载规则，可以通过各个模块的 &lt;code>LoadRules(rules)&lt;/code> 方法加载规则。以下是硬编码方式对某个method在consumer端的QPS流控：&lt;/p>
-&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-go" data-lang="go">&lt;span style="display:flex;">&lt;span>_, err &lt;span style="color:#719e07">:=&lt;/span> flow.&lt;span style="color:#268bd2">LoadRules&lt;/span>([]&lt;span style="color:#719e07">*&lt;/span>flow.FlowRule{
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ID: &lt;span style="color:#2aa198">666&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Resource: &lt;span style="color:#2aa198">&amp;#34;dubbo:consumer:com.ikurento.user.UserProvider:myGroup:1.0.0:hello()&amp;#34;&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> MetricType: flow.QPS,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> Count: &lt;span style="color:#2aa198">10&lt;/span>,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ControlBehavior: flow.Reject,
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> },
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>})
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">if&lt;/span> err &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">nil&lt;/span> {
-&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// 加载规则失败，进行相关处理
-&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span>}
-&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h1 id="总结">总结&lt;/h1>
-&lt;p>更加具体的实现，我就不详细论述，大家可以去看源码进一步了解。&lt;/p>
-&lt;p>最后，欢迎大家持续关注，或者贡献代码，期待dubbo-go在2020年在云原生领域继续突破。&lt;/p>
-&lt;p>dubbo-go仓库地址：https://github.com/apache/dubbo-go&lt;/p></description></item></channel></rss>
+&lt;p>这个东西，属于难者不会会者不难。就是如果你不知道可以通过plugin的形式来修改生成的代码，那就是真难；但是如果知道了，这个东西就很简单了——无非就是水磨工夫罢了。&lt;/p></description></item></channel></rss>
