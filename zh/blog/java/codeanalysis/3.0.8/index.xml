@@ -1,4 +1,344 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 8-Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化</title><link>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</link><pubDate>Mon, 08 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 9-Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig</title><link>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</link><pubDate>Tue, 09 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</guid><description>
+&lt;h1 id="9-dubbo启动器dubbobootstrap添加应用程序的配置信息applicationconfig">9-Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig&lt;/h1>
+&lt;h2 id="91-简介">9.1 简介&lt;/h2>
+&lt;p>先贴个代码用来参考:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>protocol&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ProtocolConfig&lt;span style="color:#719e07">(&lt;/span>CommonConstants&lt;span style="color:#719e07">.&lt;/span>DUBBO&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">-&lt;/span>1&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>service&lt;span style="color:#719e07">(&lt;/span>service&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>start&lt;span style="color:#719e07">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>await&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上个博客我们说了启动器对象的创建,启动器对象在启动之前是要初始化一些配置信息的,这里我们来看这一行代码:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="92-应用程序applicationconfig的配置信息">9.2 应用程序ApplicationConfig的配置信息&lt;/h2>
+&lt;p>ApplicationConfig的构造器比较简单就是为他的成员变量name赋值来标识这个应用程序的名字
+下面我们直接参考下官网的配置表格:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>属性&lt;/th>
+&lt;th>对应URL参数&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>是否必填&lt;/th>
+&lt;th>缺省值&lt;/th>
+&lt;th>作用&lt;/th>
+&lt;th>描述&lt;/th>
+&lt;th>兼容性&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>name&lt;/td>
+&lt;td>application&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>&lt;strong>必填&lt;/strong>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>当前应用名称，用于注册中心计算应用间依赖关系，注意：消费者和提供者应用名不要一样，此参数不是匹配条件，你当前项目叫什么名字就填什么，和提供者消费者角色无关，比如：kylin应用调用了morgan应用的服务，则kylin项目配成kylin，morgan项目配成morgan，可能kylin也提供其它服务给别人使用，但kylin项目永远配成kylin，这样注册中心将显示kylin依赖于morgan&lt;/td>
+&lt;td>1.0.16以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>version&lt;/td>
+&lt;td>application.version&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>当前应用的版本&lt;/td>
+&lt;td>2.2.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>owner&lt;/td>
+&lt;td>owner&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>应用负责人，用于服务治理，请填写负责人公司邮箱前缀&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>organization&lt;/td>
+&lt;td>organization&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>组织名称(BU或部门)，用于注册中心区分服务来源，此配置项建议不要使用autoconfig，直接写死在配置中，比如china,intl,itu,crm,asc,dw,aliexpress等&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>architecture&lt;/td>
+&lt;td>architecture&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>用于服务分层对应的架构。如，intl、china。不同的架构使用不同的分层。&lt;/td>
+&lt;td>2.0.7以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>environment&lt;/td>
+&lt;td>environment&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>应用环境，如：develop/test/product，不同环境使用不同的缺省值，以及作为只用于开发测试功能的限制条件&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>compiler&lt;/td>
+&lt;td>compiler&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>javassist&lt;/td>
+&lt;td>性能优化&lt;/td>
+&lt;td>Java字节码编译器，用于动态类的生成，可选：jdk或javassist&lt;/td>
+&lt;td>2.1.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>logger&lt;/td>
+&lt;td>logger&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>slf4j&lt;/td>
+&lt;td>性能优化&lt;/td>
+&lt;td>日志输出方式，可选：slf4j,jcl,log4j,log4j2,jdk&lt;/td>
+&lt;td>2.2.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>metadata-type&lt;/td>
+&lt;td>metadata-type&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>local&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>metadata 传递方式，是以 Provider 视角而言的，Consumer 侧配置无效，可选值有： remote - Provider 把 metadata 放到远端注册中心，Consumer 从注册中心获取 local - Provider 把 metadata 放在本地，Consumer 从 Provider 处直接获取&lt;/td>
+&lt;td>2.7.6以上版本&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>官网的配置很详细了上面有一些属性是值得注意的比如这个name,compiler,logger,metadata-type 我们可能要多看下默认值是什么,方便我们在使用过程中遇到问题的排查&lt;/p>
+&lt;p>常用的属性参考官网的表格已经足够了,不过上面的属性不是列举了所有的属性,后续应该官方文档回更新:
+我这里把缺失的一些属性列举出来:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>变量&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>registries&lt;/td>
+&lt;td>List&lt;RegistryConfig>&lt;/td>
+&lt;td>应用级注册中心列表&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>registryIds&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>注册中心id列表&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>monitor&lt;/td>
+&lt;td>MonitorConfig&lt;/td>
+&lt;td>应用级监控配置&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>dumpDirectory&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>保存线程转储的目录&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>qosEnable&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>是否启用qos&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>qosHost&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>要侦听的qos主机地址&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>qosPort&lt;/td>
+&lt;td>Integer&lt;/td>
+&lt;td>要侦听的qos端口&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>qosAcceptForeignIp&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>qos是否接收外部IP&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>parameters&lt;/td>
+&lt;td>Map&amp;lt;String, String&amp;gt;&lt;/td>
+&lt;td>自定义参数&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>shutwait&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>应用程序关闭时间&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>hostname&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>主机名&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>registerConsumer&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>用于控制是否将实例注册到注册表。仅当实例是纯消费者时才设置为“false”。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>repository&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>没找到哪里用了&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>enableFileCache&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>是否开启本地文件缓存&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>protocol&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>此应用程序的首选协议（名称）适用于难以确定哪个是首选协议的地方&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>metadataServiceProtocol&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>用于点对点的元数据传输的协议&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>metadataServicePort&lt;/td>
+&lt;td>Integer&lt;/td>
+&lt;td>元数据服务端口号，用于服务发现&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>livenessProbe&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>Liveness 存活探针 用于设置qos中探测器的扩展&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>readinessProbe&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>Readiness 就绪探针&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>startupProbe&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>Startup 启动探针&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>registerMode&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>注册模式,实例级,接口集,所有&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>enableEmptyProtection&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>接收到的空url地址列表和空保护被禁用，将清除当前可用地址&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>这里我们先来简单了解下这个实体类型的基本配置,直接看配置可能不太好理解,后面我们讲到每个配置的时候可以回来参考一下&lt;/p>
+&lt;h2 id="应用程序配置对象添加到启动器中的配置管理器中">应用程序配置对象添加到启动器中的配置管理器中&lt;/h2>
+&lt;p>了解了配置信息再回过头来看下这个配置信息如何存放到启动器里面的:&lt;/p>
+&lt;p>我们的Demo调用代码如下:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>DubboBootstrap的application方法设置一个应用程序配置ApplicationConfig对象&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> DubboBootstrap &lt;span style="color:#268bd2">application&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationConfig applicationConfig&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将启动器构造器中初始化的默认应用程序模型对象传递给配置对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> applicationConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将配置信息添加到配置管理器中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configManager&lt;span style="color:#719e07">.&lt;/span>setApplication&lt;span style="color:#719e07">(&lt;/span>applicationConfig&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ConfigManager配置管理器的setApplication方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">@DisableInject&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">setApplication&lt;/span>&lt;span style="color:#719e07">(&lt;/span>ApplicationConfig application&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> addConfig&lt;span style="color:#719e07">(&lt;/span>application&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ConfigManager配置管理器的addConfig方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">final&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T &lt;span style="color:#268bd2">extends&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> T &lt;span style="color:#268bd2">addConfig&lt;/span>&lt;span style="color:#719e07">(&lt;/span>AbstractConfig config&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// ignore MethodConfig
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//检查当前配置管理器支持管理的配置对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//目前支持的配置有ApplicationConfig,MonitorConfig,MetricsConfig,SslConfig,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//ProtocolConfig,RegistryConfig,ConfigCenterConfig,MetadataReportConfig
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!&lt;/span>isSupportConfigType&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">()))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Unsupported config type: &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//缓存中是否存在
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> configsMap &lt;span style="color:#719e07">=&lt;/span> configsCache&lt;span style="color:#719e07">.&lt;/span>computeIfAbsent&lt;span style="color:#719e07">(&lt;/span>getTagName&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">()),&lt;/span> type &lt;span style="color:#719e07">-&amp;gt;&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ConcurrentHashMap&lt;span style="color:#719e07">&amp;lt;&amp;gt;());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// fast check duplicated equivalent config before write lock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//不是服务级配置则直接从缓存中读取到配置之后直接返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!(&lt;/span>config &lt;span style="color:#719e07">instanceof&lt;/span> ReferenceConfigBase &lt;span style="color:#719e07">||&lt;/span> config &lt;span style="color:#719e07">instanceof&lt;/span> ServiceConfigBase&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">for&lt;/span> &lt;span style="color:#719e07">(&lt;/span>AbstractConfig value &lt;span style="color:#719e07">:&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>values&lt;span style="color:#719e07">())&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>value&lt;span style="color:#719e07">.&lt;/span>equals&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">(&lt;/span>T&lt;span style="color:#719e07">)&lt;/span> value&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// lock by config type
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//添加配置
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#268bd2">synchronized&lt;/span> &lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">(&lt;/span>T&lt;span style="color:#719e07">)&lt;/span> addIfAbsent&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">,&lt;/span> configsMap&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ConfigManager配置管理器的addIfAbsent方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>C &lt;span style="color:#268bd2">extends&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> C &lt;span style="color:#268bd2">addIfAbsent&lt;/span>&lt;span style="color:#719e07">(&lt;/span>C config&lt;span style="color:#719e07">,&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> C&lt;span style="color:#719e07">&amp;gt;&lt;/span> configsMap&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">throws&lt;/span> IllegalStateException &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//配置信息为空直接返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">||&lt;/span> configsMap &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> config&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// find by value
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//根据配置规则判断,配置存在则返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> Optional&lt;span style="color:#719e07">&amp;lt;&lt;/span>C&lt;span style="color:#719e07">&amp;gt;&lt;/span> prevConfig &lt;span style="color:#719e07">=&lt;/span> findDuplicatedConfig&lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>prevConfig&lt;span style="color:#719e07">.&lt;/span>isPresent&lt;span style="color:#719e07">())&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> prevConfig&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//生成配置key
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> String key &lt;span style="color:#719e07">=&lt;/span> config&lt;span style="color:#719e07">.&lt;/span>getId&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>key &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">do&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// generate key if id is not set
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> key &lt;span style="color:#719e07">=&lt;/span> generateConfigId&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span> &lt;span style="color:#719e07">while&lt;/span> &lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">.&lt;/span>containsKey&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//不相同的配置key重复则抛出异常
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> C existedConfig &lt;span style="color:#719e07">=&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>existedConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">!&lt;/span>isEquals&lt;span style="color:#719e07">(&lt;/span>existedConfig&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> String type &lt;span style="color:#719e07">=&lt;/span> config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">().&lt;/span>getSimpleName&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> logger&lt;span style="color:#719e07">.&lt;/span>warn&lt;span style="color:#719e07">(&lt;/span>String&lt;span style="color:#719e07">.&lt;/span>format&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Duplicate %s found, there already has one default %s or more than two %ss have the same id, &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;you can try to give each %s a different id, override previous config with later config. id: %s, prev: %s, later: %s&amp;#34;&lt;/span>&lt;span style="color:#719e07">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> key&lt;span style="color:#719e07">,&lt;/span> existedConfig&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// override existed config if any
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//将配置对象存入configsMap对象中,configsMap来源于configsCache
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>put&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> config&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/9-dubbo-qi-dong-qi-dubbobootstrap-tian-jia-ying-yong-cheng-xu-de-pei-zhi-xin-xi-applicationconfig/">&amp;laquo;Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 8-Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化</title><link>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</link><pubDate>Mon, 08 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/08/8-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E5%80%9F%E5%8A%A9%E5%8F%8C%E9%87%8D%E6%A0%A1%E9%AA%8C%E9%94%81%E7%9A%84%E5%8D%95%E4%BE%8B%E6%A8%A1%E5%BC%8F%E8%BF%9B%E8%A1%8C%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96/</guid><description>
 &lt;h1 id="8-dubbo启动器dubbobootstrap借助双重校验锁的单例模式进行对象的初始化">8-Dubbo启动器DubboBootstrap借助双重校验锁的单例模式进行对象的初始化&lt;/h1>
 &lt;h2 id="81-启动器简介">8.1 启动器简介&lt;/h2>
 &lt;p>在说启动器之前先把视野拉回第一章&lt;a href="https://blog.elastic.link/2022/07/10/dubbo/1-cong-yi-ge-demo-shuo-qi/">《1-从一个服务提供者的Demo说起》&lt;/a>我们的Demo代码,下面只贴一下核心代码:&lt;/p>
