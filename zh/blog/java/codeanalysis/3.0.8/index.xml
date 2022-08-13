@@ -1,4 +1,408 @@
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 9-Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig</title><link>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</link><pubDate>Tue, 09 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</guid><description>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Apache Dubbo – Dubbo 3.0.8 源码解析</title><link>https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/</link><description>Recent content in Dubbo 3.0.8 源码解析 on Apache Dubbo</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><atom:link href="https://dubbo.apache.org/zh/blog/java/codeanalysis/3.0.8/index.xml" rel="self" type="application/rss+xml"/><item><title>Blog: 10-Dubbo启动器DubboBootstrap添加注册中心配置信息RegistryConfig</title><link>https://dubbo.apache.org/zh/blog/2022/08/10/10-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFregistryconfig/</link><pubDate>Wed, 10 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/10/10-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFregistryconfig/</guid><description>
+&lt;h1 id="10-dubbo启动器dubbobootstrap添加注册中心配置信息registryconfig">10-Dubbo启动器DubboBootstrap添加注册中心配置信息RegistryConfig&lt;/h1>
+&lt;h2 id="101-简介">10.1 简介&lt;/h2>
+&lt;p>先贴个代码用来参考:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> DubboBootstrap bootstrap &lt;span style="color:#719e07">=&lt;/span> DubboBootstrap&lt;span style="color:#719e07">.&lt;/span>getInstance&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> bootstrap&lt;span style="color:#719e07">.&lt;/span>application&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ApplicationConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;dubbo-demo-api-provider&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>protocol&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> ProtocolConfig&lt;span style="color:#719e07">(&lt;/span>CommonConstants&lt;span style="color:#719e07">.&lt;/span>DUBBO&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">-&lt;/span>1&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>service&lt;span style="color:#719e07">(&lt;/span>service&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>start&lt;span style="color:#719e07">()&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">.&lt;/span>await&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>上个博客我们说了启动器ApplicationConfig对象的创建,启动器对象在启动之前是要初始化一些配置信息的,这里我们来看这一行代码注册中心配置信息:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="102--注册中心的配置相关">10.2 注册中心的配置相关&lt;/h2>
+&lt;p>下面的配置来源于官网&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>属性&lt;/th>
+&lt;th>对应URL参数&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>是否必填&lt;/th>
+&lt;th>缺省值&lt;/th>
+&lt;th>作用&lt;/th>
+&lt;th>描述&lt;/th>
+&lt;th>兼容性&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>id&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>配置关联&lt;/td>
+&lt;td>注册中心引用BeanId，可以在&amp;lt;dubbo:service registry=&amp;quot;&amp;quot;&amp;gt;或&amp;lt;dubbo:reference registry=&amp;quot;&amp;quot;&amp;gt;中引用此ID&lt;/td>
+&lt;td>1.0.16以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>address&lt;/td>
+&lt;td>&lt;a href="host:port">host:port&lt;/a>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>&lt;strong>必填&lt;/strong>&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>注册中心服务器地址，如果地址没有端口缺省为9090，同一集群内的多个地址用逗号分隔，如：ip:port,ip:port，不同集群的注册中心，请配置多个&lt;a href="dubbo:registry">dubbo:registry&lt;/a>标签&lt;/td>
+&lt;td>1.0.16以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>protocol&lt;/td>
+&lt;td>&lt;protocol>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>dubbo&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>注册中心地址协议，支持&lt;code>dubbo&lt;/code>, &lt;code>multicast&lt;/code>, &lt;code>zookeeper&lt;/code>, &lt;code>redis&lt;/code>, &lt;code>consul(2.7.1)&lt;/code>, &lt;code>sofa(2.7.2)&lt;/code>, &lt;code>etcd(2.7.2)&lt;/code>, &lt;code>nacos(2.7.2)&lt;/code>等协议&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>port&lt;/td>
+&lt;td>&lt;port>&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>9090&lt;/td>
+&lt;td>服务发现&lt;/td>
+&lt;td>注册中心缺省端口，当address没有带端口时使用此端口做为缺省值&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>username&lt;/td>
+&lt;td>&lt;username>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>登录注册中心用户名，如果注册中心不需要验证可不填&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>password&lt;/td>
+&lt;td>&lt;password>&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>登录注册中心密码，如果注册中心不需要验证可不填&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>transport&lt;/td>
+&lt;td>registry.transporter&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>netty&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>网络传输方式，可选mina,netty&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>timeout&lt;/td>
+&lt;td>registry.timeout&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>5000&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>注册中心请求超时时间(毫秒)&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>session&lt;/td>
+&lt;td>registry.session&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>60000&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>注册中心会话超时时间(毫秒)，用于检测提供者非正常断线后的脏数据，比如用心跳检测的实现，此时间就是心跳间隔，不同注册中心实现不一样。&lt;/td>
+&lt;td>2.1.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>file&lt;/td>
+&lt;td>registry.file&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>使用文件缓存注册中心地址列表及服务提供者列表，应用重启时将基于此文件恢复，注意：两个注册中心不能使用同一文件存储&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>wait&lt;/td>
+&lt;td>registry.wait&lt;/td>
+&lt;td>int&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>0&lt;/td>
+&lt;td>性能调优&lt;/td>
+&lt;td>停止时等待通知完成时间(毫秒)&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>check&lt;/td>
+&lt;td>check&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>注册中心不存在时，是否报错&lt;/td>
+&lt;td>2.0.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>register&lt;/td>
+&lt;td>register&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>是否向此注册中心注册服务，如果设为false，将只订阅，不注册&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>subscribe&lt;/td>
+&lt;td>subscribe&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>是否向此注册中心订阅服务，如果设为false，将只注册，不订阅&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>dynamic&lt;/td>
+&lt;td>dynamic&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>true&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务是否动态注册，如果设为false，注册后将显示为disable状态，需人工启用，并且服务提供者停止时，也不会自动取消注册，需人工禁用。&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>group&lt;/td>
+&lt;td>group&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>dubbo&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>服务注册分组，跨组的服务不会相互影响，也无法相互调用，适用于环境隔离。&lt;/td>
+&lt;td>2.0.5以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>simplified&lt;/td>
+&lt;td>simplified&lt;/td>
+&lt;td>boolean&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>false&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>注册到注册中心的URL是否采用精简模式的（与低版本兼容）&lt;/td>
+&lt;td>2.7.0以上版本&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>extra-keys&lt;/td>
+&lt;td>extraKeys&lt;/td>
+&lt;td>string&lt;/td>
+&lt;td>可选&lt;/td>
+&lt;td>&lt;/td>
+&lt;td>服务治理&lt;/td>
+&lt;td>在simplified=true时，extraKeys允许你在默认参数外将额外的key放到URL中，格式：“interface,key1,key2”。&lt;/td>
+&lt;td>2.7.0以上版本&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;p>同样官网提供的参数里面并未包含所有的属性 下面我就将其余的属性列举一下方便学习参考:&lt;/p>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>变量&lt;/th>
+&lt;th>类型&lt;/th>
+&lt;th>说明&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>server&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>client&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>cluster&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>影响流量在注册中心之间的分布，在订阅多个注册中心时很有用，可用选项：1。区域感知，特定类型的流量总是根据流量的来源进入一个注册表。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>zone&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>注册表所属的区域，通常用于隔离流量&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>parameters&lt;/td>
+&lt;td>Map&amp;lt;String, String&amp;gt;&lt;/td>
+&lt;td>自定义参数&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>useAsConfigCenter&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>该地址是否用作配置中心&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>useAsMetadataCenter&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>该地址是否用作远程元数据中心&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>accepts&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>此注册表接受的rpc协议列表，例如“dubbo，rest”&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>preferred&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>如果设置为true，则始终首先使用此注册表，这在订阅多个注册表时非常有用&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>weight&lt;/td>
+&lt;td>Integer&lt;/td>
+&lt;td>影响注册中心之间的流量分布，当订阅多个注册中心仅在未指定首选注册中心时才生效时，此功能非常有用。&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>registerMode&lt;/td>
+&lt;td>String&lt;/td>
+&lt;td>注册模式:实例级,接口级,所有&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>enableEmptyProtection&lt;/td>
+&lt;td>Boolean&lt;/td>
+&lt;td>收到的空url地址列表和空保护被禁用，将清除当前可用地址&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h2 id="103-注册中心配置对象创建与添加">10.3 注册中心配置对象创建与添加&lt;/h2>
+&lt;p>前面例子中调用的代码&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">.&lt;/span>registry&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">new&lt;/span> RegistryConfig&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;zookeeper://127.0.0.1:2181&amp;#34;&lt;/span>&lt;span style="color:#719e07">))&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>首先我们要来看的是RegistryConfig类型的构造器&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">RegistryConfig&lt;/span>&lt;span style="color:#719e07">(&lt;/span>String address&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> setAddress&lt;span style="color:#719e07">(&lt;/span>address&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>继续看setAddress方法&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">setAddress&lt;/span>&lt;span style="color:#719e07">(&lt;/span>String address&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//保存地址
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">.&lt;/span>address &lt;span style="color:#719e07">=&lt;/span> address&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//下面是支持将参数在url地址后面 比如用户名,密码,协议,端口,这几个参数提前做解析放入成员变量中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>address &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">try&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//地址转Dubbo的URL对象 这个URL是Dubbo自行实现的URL封装信息的类型
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> URL url &lt;span style="color:#719e07">=&lt;/span> URL&lt;span style="color:#719e07">.&lt;/span>valueOf&lt;span style="color:#719e07">(&lt;/span>address&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// Refactor since 2.7.8
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//值不存在时候更新属性,非常巧妙的代码 重构了多个if判断
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//第一个参数值不存在则调用第二个方法,第二个方法的参数为第三方方法
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> updatePropertyIfAbsent&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>getUsername&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>setUsername&lt;span style="color:#719e07">,&lt;/span> url&lt;span style="color:#719e07">.&lt;/span>getUsername&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> updatePropertyIfAbsent&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>getPassword&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>setPassword&lt;span style="color:#719e07">,&lt;/span> url&lt;span style="color:#719e07">.&lt;/span>getPassword&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> updatePropertyIfAbsent&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>getProtocol&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>setProtocol&lt;span style="color:#719e07">,&lt;/span> url&lt;span style="color:#719e07">.&lt;/span>getProtocol&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> updatePropertyIfAbsent&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>getPort&lt;span style="color:#719e07">,&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">::&lt;/span>setPort&lt;span style="color:#719e07">,&lt;/span> url&lt;span style="color:#719e07">.&lt;/span>getPort&lt;span style="color:#719e07">());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//移除掉url中的backup自定义参数 (备份的注册中心地址)
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> String&lt;span style="color:#719e07">&amp;gt;&lt;/span> params &lt;span style="color:#719e07">=&lt;/span> url&lt;span style="color:#719e07">.&lt;/span>getParameters&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>CollectionUtils&lt;span style="color:#719e07">.&lt;/span>isNotEmptyMap&lt;span style="color:#719e07">(&lt;/span>params&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> params&lt;span style="color:#719e07">.&lt;/span>remove&lt;span style="color:#719e07">(&lt;/span>BACKUP_KEY&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将自定义参数存储到成员变量中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> updateParameters&lt;span style="color:#719e07">(&lt;/span>params&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span> &lt;span style="color:#719e07">catch&lt;/span> &lt;span style="color:#719e07">(&lt;/span>Exception ignored&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>然后再回过头来看DubboBootstrap的registry方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">public&lt;/span> DubboBootstrap &lt;span style="color:#268bd2">registry&lt;/span>&lt;span style="color:#719e07">(&lt;/span>RegistryConfig registryConfig&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将applicationModel对象设置给注册中心配置对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> registryConfig&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>applicationModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//将注册中心配置对象添加到配置管理器中
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configManager&lt;span style="color:#719e07">.&lt;/span>addRegistry&lt;span style="color:#719e07">(&lt;/span>registryConfig&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">this&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>直接来看配置管理器configManager的添加注册中心配置addRegistry方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#dc322f">void&lt;/span> &lt;span style="color:#268bd2">addRegistry&lt;/span>&lt;span style="color:#719e07">(&lt;/span>RegistryConfig registryConfig&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> addConfig&lt;span style="color:#719e07">(&lt;/span>registryConfig&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>configManager 的addConfig方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">public&lt;/span> &lt;span style="color:#268bd2">final&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>T &lt;span style="color:#268bd2">extends&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> T &lt;span style="color:#268bd2">addConfig&lt;/span>&lt;span style="color:#719e07">(&lt;/span>AbstractConfig config&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// ignore MethodConfig
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//检查当前配置管理器支持管理的配置对象
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//目前支持的配置有ApplicationConfig,MonitorConfig,MetricsConfig,SslConfig,
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//ProtocolConfig,RegistryConfig,ConfigCenterConfig,MetadataReportConfig
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!&lt;/span>isSupportConfigType&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">()))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">throw&lt;/span> &lt;span style="color:#719e07">new&lt;/span> IllegalArgumentException&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Unsupported config type: &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getScopeModel&lt;span style="color:#719e07">()&lt;/span> &lt;span style="color:#719e07">!=&lt;/span> scopeModel&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config&lt;span style="color:#719e07">.&lt;/span>setScopeModel&lt;span style="color:#719e07">(&lt;/span>scopeModel&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//缓存中是否存在
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> configsMap &lt;span style="color:#719e07">=&lt;/span> configsCache&lt;span style="color:#719e07">.&lt;/span>computeIfAbsent&lt;span style="color:#719e07">(&lt;/span>getTagName&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">()),&lt;/span> type &lt;span style="color:#719e07">-&amp;gt;&lt;/span> &lt;span style="color:#719e07">new&lt;/span> ConcurrentHashMap&lt;span style="color:#719e07">&amp;lt;&amp;gt;());&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//不是服务级接口配置则直接从缓存中读取到配置之后直接返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">// fast check duplicated equivalent config before write lock
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(!(&lt;/span>config &lt;span style="color:#719e07">instanceof&lt;/span> ReferenceConfigBase &lt;span style="color:#719e07">||&lt;/span> config &lt;span style="color:#719e07">instanceof&lt;/span> ServiceConfigBase&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">for&lt;/span> &lt;span style="color:#719e07">(&lt;/span>AbstractConfig value &lt;span style="color:#719e07">:&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>values&lt;span style="color:#719e07">())&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>value&lt;span style="color:#719e07">.&lt;/span>equals&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">(&lt;/span>T&lt;span style="color:#719e07">)&lt;/span> value&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// lock by config type
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//添加配置
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#268bd2">synchronized&lt;/span> &lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> &lt;span style="color:#719e07">(&lt;/span>T&lt;span style="color:#719e07">)&lt;/span> addIfAbsent&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">,&lt;/span> configsMap&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>ConfigManager配置管理器的addIfAbsent方法:&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#93a1a1;background-color:#002b36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-java" data-lang="java">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#268bd2">private&lt;/span> &lt;span style="color:#719e07">&amp;lt;&lt;/span>C &lt;span style="color:#268bd2">extends&lt;/span> AbstractConfig&lt;span style="color:#719e07">&amp;gt;&lt;/span> C &lt;span style="color:#268bd2">addIfAbsent&lt;/span>&lt;span style="color:#719e07">(&lt;/span>C config&lt;span style="color:#719e07">,&lt;/span> Map&lt;span style="color:#719e07">&amp;lt;&lt;/span>String&lt;span style="color:#719e07">,&lt;/span> C&lt;span style="color:#719e07">&amp;gt;&lt;/span> configsMap&lt;span style="color:#719e07">)&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#268bd2">throws&lt;/span> IllegalStateException &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//配置信息为空直接返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>config &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">||&lt;/span> configsMap &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> config&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// find by value
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//根据配置规则判断,配置存在则返回
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> Optional&lt;span style="color:#719e07">&amp;lt;&lt;/span>C&lt;span style="color:#719e07">&amp;gt;&lt;/span> prevConfig &lt;span style="color:#719e07">=&lt;/span> findDuplicatedConfig&lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>prevConfig&lt;span style="color:#719e07">.&lt;/span>isPresent&lt;span style="color:#719e07">())&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> prevConfig&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//生成配置key
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> String key &lt;span style="color:#719e07">=&lt;/span> config&lt;span style="color:#719e07">.&lt;/span>getId&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>key &lt;span style="color:#719e07">==&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span>&lt;span style="color:#719e07">)&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">do&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// generate key if id is not set
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> key &lt;span style="color:#719e07">=&lt;/span> generateConfigId&lt;span style="color:#719e07">(&lt;/span>config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span> &lt;span style="color:#719e07">while&lt;/span> &lt;span style="color:#719e07">(&lt;/span>configsMap&lt;span style="color:#719e07">.&lt;/span>containsKey&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">//不相同的配置key重复则抛出异常
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> C existedConfig &lt;span style="color:#719e07">=&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>get&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">if&lt;/span> &lt;span style="color:#719e07">(&lt;/span>existedConfig &lt;span style="color:#719e07">!=&lt;/span> &lt;span style="color:#cb4b16">null&lt;/span> &lt;span style="color:#719e07">&amp;amp;&amp;amp;&lt;/span> &lt;span style="color:#719e07">!&lt;/span>isEquals&lt;span style="color:#719e07">(&lt;/span>existedConfig&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">))&lt;/span> &lt;span style="color:#719e07">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> String type &lt;span style="color:#719e07">=&lt;/span> config&lt;span style="color:#719e07">.&lt;/span>getClass&lt;span style="color:#719e07">().&lt;/span>getSimpleName&lt;span style="color:#719e07">();&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> logger&lt;span style="color:#719e07">.&lt;/span>warn&lt;span style="color:#719e07">(&lt;/span>String&lt;span style="color:#719e07">.&lt;/span>format&lt;span style="color:#719e07">(&lt;/span>&lt;span style="color:#2aa198">&amp;#34;Duplicate %s found, there already has one default %s or more than two %ss have the same id, &amp;#34;&lt;/span> &lt;span style="color:#719e07">+&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#2aa198">&amp;#34;you can try to give each %s a different id, override previous config with later config. id: %s, prev: %s, later: %s&amp;#34;&lt;/span>&lt;span style="color:#719e07">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> type&lt;span style="color:#719e07">,&lt;/span> key&lt;span style="color:#719e07">,&lt;/span> existedConfig&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">));&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#586e75">// override existed config if any
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> &lt;span style="color:#586e75">//将配置对象存入configsMap对象中,configsMap来源于configsCache
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#586e75">&lt;/span> configsMap&lt;span style="color:#719e07">.&lt;/span>put&lt;span style="color:#719e07">(&lt;/span>key&lt;span style="color:#719e07">,&lt;/span> config&lt;span style="color:#719e07">);&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">return&lt;/span> config&lt;span style="color:#719e07">;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#719e07">}&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>原文： &lt;a href="https://blog.elastic.link/2022/07/10/dubbo/10-dubbo-qi-dong-qi-dubbobootstrap-tian-jia-zhu-ce-zhong-xin-pei-zhi-xin-xi-registryconfig//">&amp;laquo;Dubbo启动器DubboBootstrap添加注册中心配置信息RegistryConfig&amp;raquo;&lt;/a>&lt;/p></description></item><item><title>Blog: 9-Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig</title><link>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</link><pubDate>Tue, 09 Aug 2022 00:00:00 +0000</pubDate><guid>https://dubbo.apache.org/zh/blog/2022/08/09/9-dubbo%E5%90%AF%E5%8A%A8%E5%99%A8dubbobootstrap%E6%B7%BB%E5%8A%A0%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%9A%84%E9%85%8D%E7%BD%AE%E4%BF%A1%E6%81%AFapplicationconfig/</guid><description>
 &lt;h1 id="9-dubbo启动器dubbobootstrap添加应用程序的配置信息applicationconfig">9-Dubbo启动器DubboBootstrap添加应用程序的配置信息ApplicationConfig&lt;/h1>
 &lt;h2 id="91-简介">9.1 简介&lt;/h2>
 &lt;p>先贴个代码用来参考:&lt;/p>
