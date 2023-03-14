@@ -8,6 +8,7 @@ feature:
   title: 可观测性
   description: >
     多维度的可观测指标（Metrics、Tracing、Access Logs）帮助了解服务运行状态，为持续定位、维护和优化服务提供依据，Admin 控制台帮助实现数据指标可视化展示
+
 ---
 
 Dubbo 内部维护了多个纬度的可观测指标，并且支持多种方式的可视化监测。可观测性指标从总体上来说分为三个度量纬度：
@@ -15,29 +16,38 @@ Dubbo 内部维护了多个纬度的可观测指标，并且支持多种方式�
 * **Metrics** Dubbo 统计了一系列的流量指标如 QPS、RT、成功请求数、失败请求数等，还包括一系列的内部组件状态如线程池数、服务健康状态等。
 * **Tracing** Dubbo 与业界主流的链路追踪工作做了适配，包括 Skywalking、Zipkin、Jaeger 都支持 Dubbo 服务的链路追踪。
 * **Logging** Dubbo 支持多种日志框架适配。以 Java 体系为例，支持包括 Slf4j、Log4j2、Log4j、Logback、Jcl 等，用户可以基于业务需要选择合适的框架；同时 Dubbo 还支持 Access Log 记录请求踪迹等日志的分层。
-# 指标
+
+# Metrics
+
 ## 指标模块简介
-Dubbo的指标模块帮助用户从外部观察正在运行的系统的内部服务状况 ，Dubbo参考 *[四个黄金信号](https://sre.google/sre-book/monitoring-distributed-systems/)*、*RED方法*、*USE方法*等理论并结合实际企业应用场景从不同维度统计了丰富的关键指标，关注这些核心指标对于提供可用性的服务是至关重要的。 
+
+Dubbo的指标模块帮助用户从外部观察正在运行的系统的内部服务状况 ，Dubbo参考 *[四个黄金信号](https://sre.google/sre-book/monitoring-distributed-systems/)*、*RED方法*、*USE方法*等理论并结合实际企业应用场景从不同维度统计了丰富的关键指标，关注这些核心指标对于提供可用性的服务是至关重要的。
 
 Dubbo的关键指标包含：**延迟（Latency）**、**流量（Traffic）**、 **错误（Errors）** 和 **饱和度（Saturation）** 等内容 。同时，为了更好的监测服务运行状态，Dubbo 还提供了对核心组件状态的监控，如Dubbo应用信息、线程池信息、三大中心交互的指标数据等。
 
 Dubbo目前推荐使用Prometheus来进行服务监控，Grafana来展示指标数据。接下来就通过案例来快速入门Dubbo的指标监控吧。
 
 ## 快速入门
+
 ### 环境
-- 系统：Windows、Linux、MacOS
-- JDK 8 及以上
-- Git  
-- Maven   
-- Prometheus [安装教程](../install/prometheus-install)
-- Grafana [安装教程](../install/grafana-install)
+
+* 系统：Windows、Linux、MacOS
+
+* JDK 8 及以上
+* Git  
+* Maven
+* Prometheus [安装教程](../install/prometheus-install)
+* Grafana [安装教程](../install/grafana-install)
 
 ### 参考案例
+
 Dubbo官方案例中提供了指标埋点的示例，可以访问如下地址获取案例源码：
-- Spring项目参考案例：  [dubbo-samples-metrics-prometheus](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-metrics-prometheus)
-- SpringBoot项目参考案例: [dubbo-samples-metrics-spring-boot](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-metrics-spring-boot)
+
+* Spring项目参考案例：  [dubbo-samples-metrics-prometheus](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-metrics-prometheus)
+* SpringBoot项目参考案例: [dubbo-samples-metrics-spring-boot](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-metrics-spring-boot)
 
 ### 依赖
+
 目前Dubbo的指标埋点仅支持3.2及以上版本，同时需要额外引入dubbo-metrics-prometheus依赖如下所示：
 
 ```xml
@@ -49,6 +59,7 @@ Dubbo官方案例中提供了指标埋点的示例，可以访问如下地址获
 ```
 
 ### 配置
+
 目前Dubbo支持推和拉两种模式获取指标数据，下面以普罗米修斯拉取指标数据的方式来作为演示，开启Dubbo的指标埋点只需要引入以下对应配置即可。下面介绍两种开启的方式分别为Spring文件中配置和dubbo.properties配置文件中配置，您可以选择其中一种适合自己方式即可。
 
 **Spring配置文件中的指标配置**
@@ -75,6 +86,7 @@ Dubbo官方案例中提供了指标埋点的示例，可以访问如下地址获
 </beans>
 
 ```
+
 **dubbo.properties配置文件中的指标配置**
 
 当然您也可以通过在dubbo.properties这样的配置文件中新增如下配置：
@@ -91,11 +103,11 @@ dubbo.registry.address=zookeeper://${zookeeper.address:127.0.0.1}:2181
 
 关于指标的配置可以参考配置项中的指标配置信息，在这里引入的配置中:
 
-- **protocol：** 当前指标体系类型，这里是普罗米修斯。
+* **protocol：** 当前指标体系类型，这里是普罗米修斯。
 
-- **enable-jvm-metrics：** 是对JVM指标的埋点， 如果不需要这些配置项可以将其删除或者设置为false。
-- **aggregation：** 针对指标数据的聚合处理使监控指标更平滑。
-- **prometheus-exporter：** 指标数据导出器，这里配置指标服务的端口号为20888。
+* **enable-jvm-metrics：** 是对JVM指标的埋点， 如果不需要这些配置项可以将其删除或者设置为false。
+* **aggregation：** 针对指标数据的聚合处理使监控指标更平滑。
+* **prometheus-exporter：** 指标数据导出器，这里配置指标服务的端口号为20888。
 
 配置完成后即可启动服务。
 
@@ -105,10 +117,9 @@ dubbo.registry.address=zookeeper://${zookeeper.address:127.0.0.1}:2181
 
 #### 在您开始之前
 
-- 安装[普罗米修斯服务](../install/prometheus-install)
+* 安装[普罗米修斯服务](../install/prometheus-install)
 
 #### 查询Apache Dubbo指标
-
 
 如果需要测试指标数据可以直接在服务器上面执行如下命令：
 
@@ -137,18 +148,20 @@ scrape_configs:
     static_configs:
     - targets: ['IP:20888']
 ```
+
 上面仅仅以单台机器演示，将IP关键词替换为实际IP即可，当然在实际企业应用中可以根据实际情况配置为动态服务发现地址这样可以获取所有服务的指标数据。
 
 使用普罗米修斯的图形界面来查询指标数据如下图所示：
 ![prometheus.png](/imgs/v3/advantages/prometheus.png)
 
 ### 使用Grafana可视化指标
+
 指标可视化页面目前推荐的方式是使用Grafana来配置Dubbo的可观测性监控大盘。
 
 #### 在您开始之前
 
-- 安装[普罗米修斯服务](../install/prometheus-install)
-- 安装[Grafana](../install/grafana-install)
+* 安装[普罗米修斯服务](../install/prometheus-install)
+* 安装[Grafana](../install/grafana-install)
 
 #### 查看Dubbo指标面板
 
@@ -163,8 +176,8 @@ Dubbo提供了丰富的指标面板，这些面板均可以在Grafana官方面�
 ![grafana-dashboard-1.png](/imgs/v3/advantages/grafana-dashboard-1.png)
 ![grafana-dashboard-2.png](/imgs/v3/advantages/grafana-dashboard-2.png)
 
-
 ### Dubbo 指标含义
+
 #### Provider Metrics
 
 | 指标                                      | 含义                                      |
@@ -182,7 +195,6 @@ Dubbo提供了丰富的指标面板，这些面板均可以在Grafana官方面�
 | dubbo_provider_rt_seconds_last            | 提供者处理请求中当前的响应时间            |
 | dubbo_provider_rt_seconds_p95             | 提供者处理请求中95%的请求耗费的总响应时间 |
 | dubbo_provider_rt_seconds_p99             | 提供者处理请求中99%的请求耗费的总响应时间 |
-
 
 #### Consumer Metrics
 
@@ -210,19 +222,130 @@ Dubbo提供了丰富的指标面板，这些面板均可以在Grafana官方面�
 
 #### Configuration Center Metrics
 
+# Tracing
 
+## Tracing模块简介
 
-## Tracing
-全链路追踪对于监测分布式系统运行状态具有非常重要的价值，Dubbo 通过 Filter 拦截器实现了请求运行时的埋点跟踪，通过将跟踪数据导出到一些主流实现如 Zipkin、Skywalking、Jaeger 等，可以实现全链路跟踪数据的分析与可视化展示。
+全链路追踪对于监测分布式系统运行状态具有非常重要的价值，Dubbo 通过内置Micrometer实现了请求运行时的链路跟踪，通过将跟踪数据导出到一些主流实现，如 Zipkin、Skywalking等，可以实现全链路跟踪数据的分析与可视化展示。
 
-![Admin 效果图](/imgs/v3/advantages/observability-tracing.png)
+## 快速入门
 
-只需要简单的一行配置即可切换链路跟踪的后端实现，并且，你可以随时通过 Dubbo Admin 等治理平台动态调整 Dubbo 的链路追踪采样率，对于问题排查都非常有价值。
+### 概念
 
-* [基于 Skywalking 实现全链路追踪]()
-* [基于 Zipkin 实现全链路追踪]()
+* [Micrometer](https://micrometer.io/)：Java可观测门面，类似SLF4J在日志门面中的地位，为最流行的可观测性系统在检测客户端上提供了一个简单的外观，允许您检测基于 JVM 的应用程序代码，而无需供应商锁定。SpringBoot3内置的可观测组件。
+* [opentelemetry](https://opentelemetry.io/)：工具、API和SDK的集合，可用其来检测、生成、收集和导出可观测数据（指标、日志、跟踪）
+* [zipkin](https://zipkin.io/)：分布式跟踪系统
+* [skywalking](https://skywalking.apache.org/)：适用于分布式系统的应用程序性能监控工具，专为微服务、云原生和基于容器 (Kubernetes) 的架构而设计。
 
-## Logging
+### 环境
+
+* 系统：Windows、Linux、MacOS
+
+* JDK 8 及以上（对于SpringBoot3，要求JDK17）
+* Git  
+* Maven
+* Zipkin [安装教程](https://zipkin.io/pages/quickstart.html)
+
+### 参考案例
+
+Dubbo官方案例中提供了链路追踪的示例，可以访问如下地址获取案例源码：
+
+* SpringBoot2项目参考案例：[dubbo-samples-spring-boot-tracing](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-spring-boot-tracing)
+* SpringBoot3项目参考案例：[dubbo-samples-spring-boot3-tracing](https://github.com/apache/dubbo-samples/tree/master/4-governance/dubbo-samples-spring-boot3-tracing)
+
+### 依赖
+
+```xml
+<!-- dubbo 可观测springboot starter -->
+<dependency>
+    <groupId>org.apache.dubbo</groupId>
+    <artifactId>dubbo-spring-boot-observability-starter</artifactId>
+</dependency>
+
+<!-- 将链路信息桥接至标准的Otel -->
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-otel</artifactId>
+</dependency>
+
+<!-- Otel导出至Zipkin -->
+<dependency>
+    <groupId>io.opentelemetry</groupId>
+    <artifactId>opentelemetry-exporter-zipkin</artifactId>
+</dependency>
+```
+
+### 配置
+
+配置Zipkin服务端点
+
+```java
+@Configuration
+public class ObservationConfiguration {
+
+    @Bean
+    SpanExporter spanExporter() {
+        return new ZipkinSpanExporterBuilder().setEndpoint("http://localhost:9411/api/v2/spans").build();
+    }
+
+}
+```
+
+在application.yml中新增如下配置
+
+```yml
+dubbo:
+  tracing:
+    enabled: true
+    sampling:
+      probability: 0.1 # 设置采样率
+
+# 将traceId和spanId打印到日志
+logging:
+  pattern:
+    level: '%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]'
+```
+
+### 效果
+
+![zipkin 效果图](/imgs/v3/advantages/zipkin.png)
+
+### 扩展
+
+#### 其他 Micrometer Tracing Bridge
+
+```xml
+<!-- Brave Tracer -->
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-bridge-brave</artifactId>
+</dependency>
+```
+
+#### 其他 Micrometer Tracing Exporter
+
+```xml
+<!-- Tanzu Observability by Wavefront -->
+<dependency>
+    <groupId>io.micrometer</groupId>
+    <artifactId>micrometer-tracing-reporter-wavefront</artifactId>
+</dependency>
+
+<!-- OpenZipkin Zipkin with Brave -->
+<dependency>
+    <groupId>io.zipkin.reporter2</groupId>
+    <artifactId>zipkin-reporter-brave</artifactId>
+</dependency>
+
+<!-- An OpenZipkin URL sender dependency to send out spans to Zipkin via a URLConnectionSender -->
+<dependency>
+    <groupId>io.zipkin.reporter2</groupId>
+    <artifactId>zipkin-sender-urlconnection</artifactId>
+</dependency>
+```
+
+# Logging
+
 访问日志可以帮助分析系统的流量情况，在有些场景下，开启访问日志对于排查问题也非常有帮助。
 
 * [开启 Access Log]()
